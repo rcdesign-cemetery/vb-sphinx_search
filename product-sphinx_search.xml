@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<product productid="sphinx_search" active="1">
+	<title>Sphinx Search for vB4.X</title>
+	<description />
+	<version>1.0</version>
+	<url />
+	<versioncheckurl />
+	<apm_releasedate>0</apm_releasedate>
+	<apm_author />
+	<apm_relatedurl />
+	<apm_extrainfo />
+	<apm_extraedit />
+	<dependencies>
+	</dependencies>
+	<codes>
+		<code version="1.0">
+			<installcode><![CDATA[// Create the queue table used by searchworks
+$vbulletin->db->query_write("
+CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_queue (
+  contenttypeid int(10) unsigned NOT NULL,
+  primaryid int(10) unsigned NOT NULL,
+  done tinyint(1) default 0 NOT NULL,
+  PRIMARY KEY  (contenttypeid,primaryid)
+) 
+");]]></installcode>
+			<uninstallcode />
+		</code>
+	</codes>
+	<templates>
+	</templates>
+	<stylevardfns>
+	</stylevardfns>
+	<stylevars>
+	</stylevars>
+	<plugins>
+		<plugin active="1" executionorder="1">
+			<title>Add sphinx implementation to search type</title>
+			<hookname>admin_search_options</hookname>
+			<phpcode><![CDATA[$options['vBSphinxSearch_Core'] = 'Sphinx Search';]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Reset result limits for users post/threads</title>
+			<hookname>search_finduser_start</hookname>
+			<phpcode><![CDATA[$vbulletin->options['maxresults'] = 0;]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Modify default search options</title>
+			<hookname>search_process_start</hookname>
+			<phpcode><![CDATA[if ($vbulletin->GPC_exists['query'] AND
+        !$vbulletin->GPC['searchthreadid'] AND
+        !$vbulletin->GPC_exists['sortby'] AND
+        !$vbulletin->GPC_exists['showposts'] AND
+        !$vbulletin->GPC_exists['contenttypeid'] AND
+        !$vbulletin->GPC_exists['type'])
+{
+    $vbulletin->GPC_exists['sortby'] = true;
+    $vbulletin->GPC['sortby'] = 'relevance';    
+}]]></phpcode>
+		</plugin>
+	</plugins>
+	<phrases>
+		<phrasetype name="vBulletin Settings" fieldname="vbsettings">
+			<phrase name="setting_sph_similar_threads_time_line_desc" date="1287090540" username="Vitaly" version="1.0"><![CDATA[Set limit between thread last posts and current time (in days). Older threads will not be considered as similar. Set 0 to disable limit.]]></phrase>
+			<phrase name="setting_sph_similar_threads_time_line_title" date="1287090540" username="Vitaly" version="1.0"><![CDATA[Similar Threads Search Period]]></phrase>
+		</phrasetype>
+	</phrases>
+	<options>
+		<settinggroup name="search" displayorder="370">
+			<setting varname="sph_similar_threads_time_line" displayorder="115">
+				<datatype>posint</datatype>
+				<defaultvalue>365</defaultvalue>
+			</setting>
+		</settinggroup>
+	</options>
+	<helptopics>
+	</helptopics>
+	<cronentries>
+	</cronentries>
+	<faqentries>
+	</faqentries>
+	<templateedits>
+	</templateedits>
+</product>

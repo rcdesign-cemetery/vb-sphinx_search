@@ -1,0 +1,33 @@
+#!/usr/bin/php5 -q
+<?php
+
+# Set $vbulletin_root_path to the absolute path to your forum directory.
+$vbulletin_root_path = '/path/to/my/vbulletin/forum';
+
+$sphinx_conf['index_path'] = '/path/to/my/index/folder';
+$sphinx_conf['searchd_pid'] = '/var/run/sphinx_demon.pid';
+// if you don't use db_sock set empty
+$sphinx_conf['db_sock'] = '/var/run/mysqld/mysqld.sock';
+// if you don't use stop words set empty
+$sphinx_conf['sphinx_stopwords_file'] = '/path/to/my/sphinx/stopwords.txt';
+// if you don't use word forms set empty
+//$sphinx_conf['sphinx_wordforms_file'] = '/path/to/my/sphinx/wordforms.txt';
+
+
+// $sphinx_conf['mem_limit'] = '256';
+// $sphinx_conf['query_log'] = '/dev/null';
+// $sphinx_conf['log_file'] = '/dev/null';
+// $sphinx_conf['read_timeout'] = 5;
+// $sphinx_conf['max_children'] = 5;
+// $sphinx_conf['max_matches'] = 50000;
+
+
+define('SPHINX_PARSE_FILE', dirname(__FILE__) . '/sphinx-cfg-parse.php');
+if (file_exists(SPHINX_PARSE_FILE))
+{
+    include(SPHINX_PARSE_FILE);
+}
+else
+{
+    echo 'Check path to sphinx_parse.php file ';
+}

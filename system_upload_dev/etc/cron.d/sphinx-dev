@@ -1,0 +1,12 @@
+#
+#  Rebuild all indeces
+#
+
+22 4 * * *		root	/etc/init.d/sphinx-dev index > /dev/null
+
+#
+#  Rebuild only delta indeces
+#
+
+7,22,37,52 * * * *	root	/etc/init.d/sphinx-dev delta > /dev/null
+
