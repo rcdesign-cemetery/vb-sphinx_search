@@ -187,6 +187,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         if ($criteria->is_title_only())
         {
             $search_text = '@grouptitle ' . $search_text;
+            $this->_sphinx_filters[] = 'isfirst = 1';
         }
         $this->_sphinx_filters[] = "MATCH('$search_text')";
         return true;
@@ -439,15 +440,21 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         $this->_user_query_text = $threadtitle;
         $search_text = $this->_escape_string($threadtitle, false);
 
+        $this->_sphinx_filters[] = 'isfirst = 1';
         $this->_sphinx_filters[] = "MATCH('@grouptitle \"$search_text\"/1')";
-        $this->_sphinx_filters[] = 'groupid <> ' . $threadid;
-        $this->_sphinx_filters[] = 'groupvisible = 1';
+        $this->_sphinx_filters[] = 'contenttypeid = ' . vB_Types::instance()->getContentTypeId('vBForum_Post');
+
         if (0 < (int)$vbulletin->options['sph_similar_threads_time_line'])
         {
             $time_line = TIMENOW - $vbulletin->options['sph_similar_threads_time_line'] * 24 * 60 * 60;
             $this->_sphinx_filters[] = 'groupdateline >= ' . $time_line;
         }
-        $this->_sphinx_filters[] = 'isfirst = 1';
+        $this->_sphinx_filters[] = 'groupvisible = 1';
+        if (0 < (int)$threadid)
+        {
+            $this->_sphinx_filters[] = 'groupid <> ' . $threadid;
+        }
+        
 
         $this->_process_sort('relevance');
 
