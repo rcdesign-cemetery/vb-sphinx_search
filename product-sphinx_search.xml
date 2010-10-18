@@ -58,6 +58,20 @@ CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_queue (
     $vbulletin->GPC['sortby'] = 'relevance';    
 }]]></phpcode>
 		</plugin>
+		<plugin active="1" executionorder="10">
+			<title>Show results as post for general search form(hack)</title>
+			<hookname>search_process_start</hookname>
+			<phpcode><![CDATA[if ($vbulletin->GPC_exists['query'] AND
+        !$vbulletin->GPC['searchthreadid'] AND
+        !$vbulletin->GPC_exists['order'] AND
+        !$vbulletin->GPC_exists['showposts'] AND
+        !$vbulletin->GPC_exists['contenttypeid'] AND
+        !$vbulletin->GPC_exists['type'])
+{
+    $vbulletin->GPC_exists['showposts'] = true;
+    $vbulletin->GPC['showposts'] = true;
+}]]></phpcode>
+		</plugin>
 	</plugins>
 	<phrases>
 		<phrasetype name="vBulletin Settings" fieldname="vbsettings">
@@ -68,7 +82,7 @@ CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_queue (
 	<options>
 		<settinggroup name="search" displayorder="370">
 			<setting varname="sph_similar_threads_time_line" displayorder="115">
-				<datatype>posint</datatype>
+				<datatype>integer</datatype>
 				<defaultvalue>365</defaultvalue>
 			</setting>
 		</settinggroup>

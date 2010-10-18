@@ -481,6 +481,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         {
             $content_types = array(vB_Types::instance()->getContentTypeId($content_types));
         }
+        else
+        {
+            // хак. результат поиска будет показываться как отдельный пост,
+            // но будет группировка по тредам
+            $this->_require_group = true;
+        }
         $searchable_contenttypes = $this->_fetch_content_types('searchable');
         if (is_array($content_types) && count($content_types) > 0)
         {
