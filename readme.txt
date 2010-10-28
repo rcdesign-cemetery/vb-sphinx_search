@@ -3,6 +3,10 @@ Description
 
 Sphinx Search integration for vBulletin
 
+/dev_files      - configs for defelopment
+/dictionaries   - files & tools to build wordforms/stopwords
+/forum_upload   - vBulletin addon files
+/system_upload  - server configs for sphinx
 
 Installation
 ------------
@@ -27,14 +31,17 @@ $config['sphinx']['api_host'] = '/tmp/sphinx.sock';
 3. Copy files of this addon
 
 
-4. Configure /usr/local/etc/sphinx-conf.php from example, then:
+4. Prepare dictionaries (recommended)
+
+
+5. Configure /usr/local/etc/sphinx-conf.php from example, then:
 
 service sphinx index
 service sphinx start
 service cron restart
 
 
-5. Install XML filein vB ACP.
+6. Install XML file in vB ACP.
 
 ACP -> Settings -> Search Type = sphinx
 ACP -> Settings -> Options -> Search -> Similar Threads Period
