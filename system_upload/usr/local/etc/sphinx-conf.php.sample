@@ -1,19 +1,27 @@
 #!/usr/bin/php5 -q
 <?php
 
-# Set $vbulletin_root_path to the absolute path to your forum directory.
+// Set $vbulletin_root_path to the absolute path to your forum directory.
 $vbulletin_root_path = '/path/to/my/vbulletin/forum';
+
 
 $sphinx_conf['index_path'] = '/path/to/my/index/folder';
 $sphinx_conf['searchd_pid'] = '/var/run/sphinx_demon.pid';
-// if you don't use db_sock set empty
+
+// Comment to use host:port from vbulletin config
+// But socket connect is a bit faster
 $sphinx_conf['db_sock'] = '/var/run/mysqld/mysqld.sock';
-// if you don't use stop words set empty
-$sphinx_conf['sphinx_stopwords_file'] = '/path/to/my/sphinx/stopwords.txt';
-// if you don't use word forms set empty
+
+// Uncomment to use stopwords
+//$sphinx_conf['sphinx_stopwords_file'] = '/path/to/my/sphinx/stopwords.txt';
+
+// Uncomment to use wordforms
 //$sphinx_conf['sphinx_wordforms_file'] = '/path/to/my/sphinx/wordforms.txt';
 
+// You can add more templates here. They will be concatenated
+$config_templates[] = 'sphinx.conf.tpl';
 
+// Uncomment to change defaults for indexer/daemon
 // $sphinx_conf['mem_limit'] = '256';
 // $sphinx_conf['query_log'] = '/dev/null';
 // $sphinx_conf['log_file'] = '/dev/null';

@@ -3,9 +3,17 @@
  * Do not change
  */
 error_reporting(0);
-ob_start();
 
-define('SPHINX_CONF_TPL_FILE', dirname(__FILE__) . '/sphinx.conf.tpl');
+if (!defined('SPHINX_CONF_TPL_DIR'))
+{
+    define('SPHINX_CONF_TPL_DIR', dirname(__FILE__));
+}
+
+if (!isset($config_templates) OR empty($config_templates) OR !is_array($config_templates))
+{
+    echo 'Sphinx config templates not set';
+    die();
+}
 
 $vbulletin_conf_path = $vbulletin_root_path . '/includes/config.php';
 if (file_exists($vbulletin_conf_path))
@@ -68,7 +76,7 @@ else
 }
 if (isset($sphinx_conf['sphinx_stopwords_file']) AND !empty($sphinx_conf['sphinx_stopwords_file']))
 {
-    $sphinx_conf['sphinx_stopwords_file'] = 'stopwords       = '.$sphinx_conf['sphinx_stopwords_file'];
+    $sphinx_conf['sphinx_stopwords_file'] = 'stopwords       = ' . $sphinx_conf['sphinx_stopwords_file'];
 }
 else
 {
@@ -76,7 +84,7 @@ else
 }
 if (isset($sphinx_conf['sphinx_wordforms_file']) AND !empty($sphinx_conf['sphinx_wordforms_file']))
 {
-    $sphinx_conf['sphinx_wordforms_file'] = 'stopwords       = '.$sphinx_conf['sphinx_wordforms_file'];
+    $sphinx_conf['sphinx_wordforms_file'] = 'wordforms       = ' . $sphinx_conf['sphinx_wordforms_file'];
 }
 else
 {
@@ -85,9 +93,9 @@ else
 
 //sphinx_ql
 $host = $config['sphinx']['sql_host'];
-if ( $host[0] == '/')
+if ($host[0] == '/')
 {
-    $sphinx_conf['sphinx_ql'] =  $host;
+    $sphinx_conf['sphinx_ql'] = $host;
 }
 else
 {
@@ -96,9 +104,9 @@ else
 }
 //sphinx_api
 $host = $config['sphinx']['api_host'];
-if ( $host[0] == '/')
+if ($host[0] == '/')
 {
-    $sphinx_conf['sphinx_api'] =  $host;
+    $sphinx_conf['sphinx_api'] = $host;
 }
 else
 {
@@ -106,28 +114,40 @@ else
     $sphinx_conf['sphinx_api'] = "$host:$port";
 }
 
-
+// read config files
 $search = array();
 $replace = array();
-foreach ($sphinx_conf as $key=>$value)
+$conf_tpl = '';
+
+foreach ($config_templates as $file)
 {
-    $search[] = '{'.$key.'}';
-    $replace[]= $value;
+    if (!empty($file))
+    {
+        $conf_tpl .= read_file($file);
+    }
 }
 
-$conf_tpl = '';
-$handle = fopen(SPHINX_CONF_TPL_FILE, "r");
-if ($handle)
+// replace values
+$search = array();
+$replace = array();
+foreach ($sphinx_conf as $key => $value)
 {
-    while (!feof($handle)) {
-        $conf_tpl .= fread($handle, 8192);
+    $search[] = '{' . $key . '}';
+    $replace[] = $value;
+}
+echo str_replace($search, $replace, $conf_tpl);
+
+function read_file($file_name)
+{
+    if ('/' !== $file_name[0])
+    {
+        $file_name = SPHINX_CONF_TPL_DIR . '/' . $file_name;
     }
-    fclose($handle);
-    echo str_replace($search, $replace, $conf_tpl);
+    $text = file_get_contents($file_name);
+    if (false === $text)
+    {
+        echo 'Check sphinx conf template file (' . $file_name . ')';
+        die();
+    }
+    return $text;
 }
-else
-{
-    echo 'Check sphinx conf template file';
-}
-ob_flush();
-?>

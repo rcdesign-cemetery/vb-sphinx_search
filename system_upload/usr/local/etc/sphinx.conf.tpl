@@ -780,6 +780,9 @@ index ForumMain
     min_word_len    = 1
     charset_type    = utf-8
     {sphinx_stopwords_file}
+    {sphinx_wordforms_file}
+
+    min_stemming_len = 4
 
 #        min_prefix_len  = 3
 #        min_infix_len   = 0
