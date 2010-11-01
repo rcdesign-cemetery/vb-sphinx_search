@@ -42,7 +42,9 @@ CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_queue (
 		<plugin active="1" executionorder="5">
 			<title>Reset result limits for users post/threads</title>
 			<hookname>search_finduser_start</hookname>
-			<phpcode><![CDATA[$vbulletin->options['maxresults'] = 0;]]></phpcode>
+			<phpcode><![CDATA[$vbulletin->options['maxresults'] = 0;
+$vbulletin->GPC_exists['nocache'] = true;
+$vbulletin->GPC['nocache'] = true;]]></phpcode>
 		</plugin>
 		<plugin active="1" executionorder="5">
 			<title>Modify default search options</title>
