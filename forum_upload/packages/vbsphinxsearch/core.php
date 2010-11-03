@@ -69,23 +69,6 @@ class vBSphinxSearch_Core extends vB_Search_Core
         return $result;
     }
 
-    public static function get_sphinx_client()
-    {
-        require_once (DIR . "/packages/vbsphinxsearch/sphinxapi.php");
-        global $vbulletin;
-        
-        if (is_null(self::$_sphinx_client))
-        {
-            self::$_sphinx_client = new SphinxClient();
-            $host = $vbulletin->config['sphinx']['api_host'];
-            $port = $vbulletin->config['sphinx']['api_port'];
-            $timeout = self::SPHINX_TIMEOUT;
-            self::$_sphinx_client->SetServer($host, $port);
-            self::$_sphinx_client->SetConnectTimeout($timeout);
-        }
-        return self::$_sphinx_client;
-    }
-
     public static function get_sphinxql_conection()
     {
         global $vbulletin;

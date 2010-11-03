@@ -5,7 +5,6 @@ if (!defined('VB_ENTRY'))
 
 require_once(DIR . '/vb/search/searchcontroller.php');
 require_once(DIR . '/vb/search/core.php');
-require_once (DIR . "/packages/vbsphinxsearch/sphinxapi.php");
 
 class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 {

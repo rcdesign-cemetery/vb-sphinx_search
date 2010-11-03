@@ -3,7 +3,6 @@ if (!defined('VB_ENTRY'))
     die('Access denied.');
 require_once(DIR . '/vb/search/itemindexer.php');
 
-
 class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
 {
 
@@ -24,16 +23,13 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
             $fields['primaryid'] = $fields['id'];
             unset($fields['id']);
         }
-
         if (!array_key_exists('primaryid', $fields) OR !array_key_exists('contenttypeid', $fields))
         {
             return false;
         }
 
         $this->_set_content_type_id($fields['contenttypeid']);
-        $this->_id_list = array($fields['primaryid']);
-        $this->_mark_as_deleted();
-        $this->_write_to_queue($fields['primaryid']);
+        $this->_write_to_queue(array($fields['primaryid']));
     }
 
     /**
@@ -53,7 +49,7 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
 
     public function merge_group($content_type_id, $old_group_id, $new_group_id)
     {
-        throw new Exception('Index controlle must be used');
+        throw new Exception('Index controller must be used');
     }
 
     public function group_data_change($fields)
@@ -61,7 +57,7 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
         $this->_set_content_type_id($fields['contenttypeid']);
         if ($this->_fetch_object_id_list($fields['groupid'], true))
         {
-            return $this->_update_attributes($fields);
+            return $this->_write_to_queue($this->_id_list);
         }
     }
 
@@ -74,129 +70,73 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
         }
     }
 
-    protected function _update_attributes($fields)
-    {
-        if (is_null($this->_content_type_id) OR empty($this->_id_list) OR !is_array($this->_id_list))
-        {
-            return false;
-        }
-        $indexes = vBSphinxSearch_Core::get_sphinx_index_map($this->_content_type_id);
-        if (empty($indexes))
-        {
-            return false;
-        }
-        $keys = array_keys($fields);
-        foreach ($this->_id_list as $id)
-        {
-            $document_id = $this->_generate_sphinx_document_id($id);
-            $values[$document_id] = array_map('intval', array_values($fields));
-        }
-
-        $count_updated = 0;
-        foreach ($indexes as $index)
-        {
-            $update_result = $this->_update_attributes_in_single_index($index, $keys, $values);
-            if (false === $update_result)
-            {
-                $message = "\n\nSphinx: Can't update attributes\nUse index: $index\n" . var_export($values, true) . "\n";
-                vBSphinxSearch_Core::log_errors($message);
-            }
-            else
-            {
-                $count_updated += $update_result;
-            }
-        }
-        return $count_updated;
-    }
-
-    protected function _update_attributes_in_single_index($index, $keys, $values)
-    {
-        $cl = vBSphinxSearch_Core::get_sphinx_client();
-        for ($i = 0; $i < vBSphinxSearch_Core::RECONNECT_LIMIT; $i++)
-        {
-            $count_updated = $cl->UpdateAttributes($index, $keys, $values);
-            if (-1 != $count_updated)
-            {
-                return $count_updated;
-            }
-        }
-        return false;
-    }
-
     protected function _mark_as_deleted()
     {
-
-        $fields = array('deleted' => 1);
-        return $this->_update_attributes($fields);
+        $this->_write_to_queue($this->_id_list);
+        return true;
     }
 
-    protected function _generate_sphinx_document_id($id)
+    protected function _write_to_queue($ids)
     {
-        return ($id * vBSphinxSearch_Core::SPH_DOC_ID_PACK_MULT + $this->_content_type_id);
-    }
-
-    protected function _write_to_queue($id)
-    {
-        if (is_null($this->_content_type_id) OR 0 == (int)$id)
+        if (is_null($this->_content_type_id) OR
+            !is_array($ids) OR empty($ids))
         {
             return false;
         }
-        global $vbulletin;
-        $db = $vbulletin->db;
+        $db = vB::$vbulletin->db;
+        $values = array();
+        foreach ($ids as $id)
+        {
+            $values[] = '(' . $this->_content_type_id . ', ' . $id . ')';
+        }
 
         $sql = 'INSERT INTO ' . TABLE_PREFIX . 'vbsphinxsearch_queue  (`contenttypeid`, `primaryid`)
-			VALUES (' . $this->_content_type_id . ', ' . $id . ')
-			ON DUPLICATE KEY UPDATE 
-                `contenttypeid` = VALUES(`contenttypeid`), `primaryid` = VALUES(`primaryid`), `done` = 0';
+                VALUES ' . implode(', ', $values) . '
+                ON DUPLICATE KEY UPDATE
+                    `contenttypeid` = VALUES(`contenttypeid`), `primaryid` = VALUES(`primaryid`), `done` = 0';
         return $db->query_write($sql);
     }
 
     protected function _fetch_object_id_list($group_id, $only_first = false)
     {
-        if (is_null($this->_content_type_id) OR 0 == (int)$group_id)
+        if (is_null($this->_content_type_id) OR 0 == (int) $group_id)
         {
             return false;
         }
         $this->_id_list = array();
-        $cl = vBSphinxSearch_Core::get_sphinx_client();
-        
+
         $limit = vBSphinxSearch_Core::DEFAULT_LIMIT;
-        $cl->SetLimits(0, $limit, $limit);
-
-        $cl->ResetFilters();
-        $cl->SetFilter('groupid', array($group_id));
-        if (true == $only_first)
-        {
-            $cl->SetFilter('isfirst', array(1));
-        }
-
         $indexes = implode(",", vBSphinxSearch_Core::get_sphinx_index_map($this->_content_type_id));
-        if (empty($indexes))
-        {
-            return false;
-        }
+
+        $query = 'SELECT *
+                    FROM 
+                        ' . $indexes . '
+                    WHERE
+                        contenttypeid = ' . $this->_content_type_id . ' AND
+                        groupid = ' . $group_id . ($only_first ? ' AND isfirst = 1' : '') . '
+                    LIMIT ' . $limit . ' OPTION max_matches=' . $limit;
+
+        $this->_id_list = array();
         for ($i = 0; $i < vBSphinxSearch_Core::RECONNECT_LIMIT; $i++)
         {
-            $res = $cl->Query('', $indexes);
-            $error = $cl->GetLastError();
-            if (!$error)
+            $con = vBSphinxSearch_Core::get_sphinxql_conection();
+            if (false != $con)
             {
-                break;
+                $result_res = mysql_query($query, $con);
+                if ($result_res)
+                {
+                    while ($docinfo = mysql_fetch_assoc($result_res))
+                    {
+                        $this->_id_list[] = $docinfo['primaryid'];
+                    }
+                    return true;
+                }
             }
         }
-        if ($error)
-        {
-            $message = "\n\nSphinx: Can't get primaryid list for groupid=$group_id\nUsed indexes: $indexes\n Error:\n$error\n";
-            vBSphinxSearch_Core::log_errors($message);
-        }
-        if (!is_null($res) AND is_array($res["matches"]))
-        {
-            foreach ($res["matches"] as $docinfo)
-            {
-                $this->_id_list[] = $docinfo['attrs']['primaryid'];
-            }
-            return true;
-        }
+        $error = mysql_error();
+        $message = "\n\nSphinx: Can't get primaryid list for groupid=$group_id\nUsed indexes: $indexes\n Error:\n$error\n";
+        vBSphinxSearch_Core::log_errors($message);
+
         return false;
     }
 

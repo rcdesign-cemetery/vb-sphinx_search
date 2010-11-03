@@ -24,8 +24,15 @@ source ForumMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	# Truncate the queue table only on successful full reindex
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Forum')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Forum')
+
 	sql_query 				= \
 		SELECT \
 			(f.forumid*64 + c.contenttypeid) AS id, \
@@ -46,9 +53,38 @@ source ForumMainSource : DBSource
 		WHERE \
 			c.class = 'Forum' \
 			AND forumid>=$start AND forumid<=$end
-		
-		
 
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'Forum') AND \
+            done=1;
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'Forum'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Forum') AND \
+            sq.primaryid <= sc.maxprimaryid
+
+	
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
 	sql_attr_uint			= primaryid
@@ -93,6 +129,8 @@ source ForumDeltaSource: ForumMainSource
 		WHERE \
 			c.class = 'Forum' \
 			AND forumid>=$start AND forumid<=$end
+
+    sql_query_post_index = SELECT 1;
 }
 
 source ThreadPostMainSource : DBSource
@@ -100,8 +138,14 @@ source ThreadPostMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	# Truncate the queue table 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class  = 'Post')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'POST')
 
 	sql_query 				= \
 		SELECT \
@@ -138,6 +182,38 @@ source ThreadPostMainSource : DBSource
 
 	sql_query_range         = SELECT MIN(postid),MAX(postid) FROM {table_prefix}post
 	sql_range_step		= 1024
+
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'Post') AND \
+            done=1;
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'Post'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Post') AND \
+            sq.primaryid <= sc.maxprimaryid
+
 	
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -207,7 +283,7 @@ source ThreadPostDeltaSource: ThreadPostMainSource
 		
 	sql_attr_multi = uint tagid from query; SELECT ((p.postid)*64 + (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Post')) AS id, t.tagid FROM {table_prefix}tagcontent t JOIN {table_prefix}contenttype c ON (t.contenttypeid = c.contenttypeid AND c.class = 'Thread') JOIN {table_prefix}vbsphinxsearch_queue sq ON (sq.primaryid = t.contentid AND sq.contenttypeid = (SELECT c.contenttypeid FROM {table_prefix}contenttype c WHERE c.class = 'Thread')) JOIN {table_prefix}post p ON (p.threadid = t.contentid)
 			
-			
+    sql_query_post_index = SELECT 1;
 }
 
 source DiscussionMessageMainSource: DBSource
@@ -215,7 +291,16 @@ source DiscussionMessageMainSource: DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid IN (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class IN ('SocialGroupMessage', 'SocialGroupDiscussion'))
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'SocialGroupMessage')
 
 	sql_query 				= \
 		SELECT \
@@ -249,6 +334,37 @@ source DiscussionMessageMainSource: DBSource
 
 	sql_range_step		= 1024
 	sql_query_range		= SELECT MIN(gmid),MAX(gmid) FROM {table_prefix}groupmessage
+
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'SocialGroupMessage') AND \
+            done=1;
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'SocialGroupMessage'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'SocialGroupMessage') AND \
+            sq.primaryid <= sc.maxprimaryid
 
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -306,6 +422,8 @@ source DiscussionMessageDeltaSource: DiscussionMessageMainSource
 		WHERE \
 			c.class = 'SocialGroupMessage' \
 			AND gm.gmid>=$start AND gm.gmid<=$end
+
+    sql_query_post_index = SELECT 1;
 }
 
 source SocialGroupMainSource : DBSource
@@ -313,7 +431,15 @@ source SocialGroupMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid IN (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'SocialGroup')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'SocialGroup')
+
 	sql_query 				= \
 		SELECT \
 			(sg.groupid*64 + c.contenttypeid) AS id, \
@@ -343,10 +469,41 @@ source SocialGroupMainSource : DBSource
 		WHERE \
 			c.class = 'SocialGroup' \
 			AND sg.groupid>=$start AND sg.groupid<=$end
-		
+
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'SocialGroup') AND \
+            done=1;
+
 	sql_query_range		= SELECT MIN(groupid),MAX(groupid) FROM {table_prefix}socialgroup
 	sql_range_step      = 1024
-	
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'SocialGroup'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'SocialGroup') AND \
+            sq.primaryid <= sc.maxprimaryid
+		
 
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -407,6 +564,8 @@ source SocialGroupDeltaSource: SocialGroupMainSource
 		WHERE \
 			c.class = 'SocialGroup' \
 			AND sg.groupid>=$start AND sg.groupid<=$end
+
+    sql_query_post_index = SELECT 1;
 }
 
 
@@ -415,7 +574,15 @@ source VisitorMessageMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'VisitorMessage')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'VisitorMessage')
+
 	sql_query 				= \
 		SELECT \
 			(vm.vmid*64 + c.contenttypeid) AS id, \
@@ -441,6 +608,37 @@ source VisitorMessageMainSource : DBSource
 		
 	sql_query_range		= SELECT MIN(vmid),MAX(vmid) FROM {table_prefix}visitormessage
 	sql_range_step      = 1024
+
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'VisitorMessage') AND \
+            done=1;
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'VisitorMessage'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'VisitorMessage') AND \
+            sq.primaryid <= sc.maxprimaryid
 
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -489,7 +687,8 @@ source VisitorMessageDeltaSource: VisitorMessageMainSource
 		WHERE \
 			c.class = 'VisitorMessage' \
 			AND vm.vmid>=$start AND vm.vmid<=$end
-	
+
+    sql_query_post_index = SELECT 1;
 }
 
 source BlogEntryMainSource : DBSource
@@ -497,7 +696,16 @@ source BlogEntryMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogEntry')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogEntry')
+
+
 	sql_query 				= \
 		SELECT \
 			(bt.blogtextid*64 + c.contenttypeid) AS id, \
@@ -527,6 +735,36 @@ source BlogEntryMainSource : DBSource
 		
 	sql_range_step      = 1024
 
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'BlogEntry') AND \
+            done=1;
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'BlogEntry'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogEntry') AND \
+            sq.primaryid <= sc.maxprimaryid
 
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -579,7 +817,7 @@ source BlogEntryDeltaSource: BlogEntryMainSource
 				AND bt.blogtextid>=$start AND bt.blogtextid<=$end
 
 	sql_attr_multi = uint tagid from query; SELECT ((bt.blogtextid)*64 + (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogComment')) AS id, t.tagid FROM {table_prefix}tagcontent t JOIN {table_prefix}contenttype c ON (t.contenttypeid = c.contenttypeid AND c.class = 'BlogEntry') JOIN {table_prefix}vbsphinxsearch_queue sq ON (sq.primaryid = t.contentid AND sq.contenttypeid = (SELECT c.contenttypeid FROM {table_prefix}contenttype c WHERE c.class = 'BlogEntry')) JOIN {table_prefix}blog_text bt ON (bt.blogtextid = t.contentid)
-		
+    sql_query_post_index = SELECT 1;
 }
 
 source BlogCommentMainSource : DBSource
@@ -587,7 +825,15 @@ source BlogCommentMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogComment')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogComment')
+
 	sql_query 				= \
 		SELECT \
 			(bt.blogtextid*64 + c.contenttypeid) AS id, \
@@ -617,6 +863,37 @@ source BlogCommentMainSource : DBSource
 	sql_query_range		= SELECT MIN(blogtextid),MAX(blogtextid) FROM {table_prefix}blog_text
 		
 	sql_range_step      = 1024
+
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'BlogComment') AND \
+            done=1;
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'BlogComment'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'BlogComment') AND \
+            sq.primaryid <= sc.maxprimaryid
 
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -667,6 +944,8 @@ source BlogCommentDeltaSource: BlogCommentMainSource
 		WHERE \
 			c.class = 'BlogComment' \
 			AND bt.blogtextid>=$start AND bt.blogtextid<=$end
+
+    sql_query_post_index = SELECT 1;
 }
 
 source CMSArticlesMainSource : DBSource
@@ -674,7 +953,16 @@ source CMSArticlesMainSource : DBSource
 	sql_query_pre = SET SESSION query_cache_type=OFF
 	sql_query_pre = SET NAMES UTF8
 
-	sql_query_pre = DELETE FROM {table_prefix}vbsphinxsearch_queue WHERE contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Article')
+    sql_query_pre = \
+        UPDATE \
+            {table_prefix}vbsphinxsearch_queue \
+        SET \
+            `done` = '1' \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Article')
+
+
 	sql_query 				= \
 		SELECT \
 			(a.contentid*64 + c.contenttypeid) AS id, \
@@ -708,7 +996,37 @@ source CMSArticlesMainSource : DBSource
 	sql_query_range		= SELECT MIN(contentid),MAX(contentid) FROM {table_prefix}cms_article
 		
 	sql_range_step      = 1024
-		
+
+    sql_query_post_index = \
+        DELETE FROM \
+            {table_prefix}vbsphinxsearch_queue \
+        WHERE \
+            contenttypeid = \
+                (SELECT contenttypeid \
+                    FROM {table_prefix}contenttype \
+                    WHERE class = 'Article') AND \
+            done=1;
+
+    sql_query_post_index = \
+        REPLACE INTO \
+            {table_prefix}vbsphinxsearch_counters ( contenttypeid, maxprimaryid ) \
+        SELECT \
+            contenttypeid, (($maxid -  contenttypeid)/64) \
+        FROM \
+            {table_prefix}contenttype \
+        WHERE \
+            class = 'Article'
+
+    sql_query_killlist = \
+        SELECT \
+            ((sq.primaryid )*64 + sq.contenttypeid) AS id \
+        FROM \
+            {table_prefix}vbsphinxsearch_queue AS sq \
+        LEFT JOIN {table_prefix}vbsphinxsearch_counters AS sc ON \
+			sq.contenttypeid = sc.contenttypeid \
+        WHERE \
+            sq.contenttypeid = (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Article') AND \
+            sq.primaryid <= sc.maxprimaryidDis
 	
 	sql_attr_uint			= contenttypeid
 	sql_attr_uint			= groupid
@@ -764,6 +1082,8 @@ source CMSArticlesDeltaSource: CMSArticlesMainSource
 			n.contenttypeid = c.contenttypeid \
 			AND c.class = 'Article' \
 			AND a.contentid>=$start AND a.contentid<=$end
+
+    sql_query_post_index = SELECT 1;
 }
 
 

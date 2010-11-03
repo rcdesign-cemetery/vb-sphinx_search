@@ -3,7 +3,7 @@
 <product productid="sphinx_search" active="1">
 	<title>Sphinx Search for vB4.X</title>
 	<description />
-	<version>1.0</version>
+	<version>1.1</version>
 	<url />
 	<versioncheckurl />
 	<apm_releasedate>0</apm_releasedate>
@@ -24,7 +24,22 @@ CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_queue (
   PRIMARY KEY  (contenttypeid,primaryid)
 ) 
 ");]]></installcode>
-			<uninstallcode />
+			<uninstallcode><![CDATA[
+$vbulletin->db->query_write("DROP TABLE " . TABLE_PREFIX . "vbsphinxsearch_queue");
+            ]]></uninstallcode>
+        </code>
+        <code version="1.1">
+			<installcode><![CDATA[
+$vbulletin->db->query_write("
+CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_counters (
+  `contenttypeid` INT(10) unsigned NOT NULL ,
+  `maxprimaryid` INT(10) unsigned NOT NULL ,
+  PRIMARY KEY ( `contenttypeid` , `maxprimaryid` )
+)
+");]]></installcode>
+            <uninstallcode><![CDATA[
+$vbulletin->db->query_write("DROP TABLE " . TABLE_PREFIX . "vbsphinxsearch_counters");
+            ]]></uninstallcode>
 		</code>
 	</codes>
 	<templates>
