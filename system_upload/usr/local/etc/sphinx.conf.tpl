@@ -145,7 +145,7 @@ source ThreadPostMainSource : DBSource
             `done` = '1' \
         WHERE \
             contenttypeid = \
-                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'POST')
+                (SELECT contenttypeid FROM {table_prefix}contenttype WHERE class = 'Post')
 
 	sql_query 				= \
 		SELECT \
