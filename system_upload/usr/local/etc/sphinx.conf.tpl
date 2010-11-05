@@ -1093,29 +1093,25 @@ source CMSArticlesDeltaSource: CMSArticlesMainSource
 
 index ForumMain
 {
-	source			= ForumMainSource
-	path			= {index_path}/ForumMain
+    source			= ForumMainSource
+    path			= {index_path}/ForumMain
     docinfo         = extern
     morphology      = stem_enru
-    min_word_len    = 1
-    charset_type    = utf-8
-    {sphinx_stopwords_file}
-    {sphinx_wordforms_file}
-
     min_stemming_len = 4
+    min_word_len    = 1
 
-#        min_prefix_len  = 3
-#        min_infix_len   = 0
-#        prefix_fields   = grouptitle
-#        enable_star     = 1
+    charset_type    = utf-8
 
     charset_table	= 0..9, A..Z->a..z, _, a..z, \
         U+451->U+435, U+401->U+435, U+410..U+42F->U+430..U+44F, U+430..U+44F
 
-    ignore_chars = U+AD, -
-    phrase_boundary = ., ?, !, U+2026
-	phrase_boundary_step = 100
+    ignore_chars = -, U+AD
 	
+    {sphinx_stopwords_file}
+    {sphinx_wordforms_file}
+    {sphinx_exceptions_file}
+
+
 	preopen = 1
 	inplace_enable = 1
 	inplace_hit_gap = 1M

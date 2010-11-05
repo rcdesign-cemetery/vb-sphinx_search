@@ -18,6 +18,9 @@ $sphinx_conf['db_sock'] = '/var/run/mysqld/mysqld.sock';
 // Uncomment to use wordforms
 //$sphinx_conf['sphinx_wordforms_file'] = '/path/to/my/sphinx/wordforms.txt';
 
+// Uncomment to use exceptions
+//$sphinx_conf['sphinx_exceptions_file'] = '/path/to/my/sphinx/exceptions.txt';
+
 // You can add more templates here. They will be concatenated
 $config_templates[] = 'sphinx.conf.tpl';
 

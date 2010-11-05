@@ -90,6 +90,14 @@ else
 {
     $sphinx_conf['sphinx_wordforms_file'] = '';
 }
+if (isset($sphinx_conf['sphinx_exceptions_file']) AND !empty($sphinx_conf['sphinx_exceptions_file']))
+{
+    $sphinx_conf['sphinx_exceptions_file'] = 'exceptions      = ' . $sphinx_conf['sphinx_exceptions_file'];
+}
+else
+{
+    $sphinx_conf['sphinx_exceptions_file'] = '';
+}
 
 //sphinx_ql
 $host = $config['sphinx']['sql_host'];
