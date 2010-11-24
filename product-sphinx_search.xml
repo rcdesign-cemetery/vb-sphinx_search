@@ -34,7 +34,7 @@ $vbulletin->db->query_write("
 CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_counters (
   `contenttypeid` INT(10) unsigned NOT NULL ,
   `maxprimaryid` INT(10) unsigned NOT NULL ,
-  PRIMARY KEY ( `contenttypeid` , `maxprimaryid` )
+  PRIMARY KEY ( `contenttypeid`)
 )
 ");]]></installcode>
             <uninstallcode><![CDATA[
