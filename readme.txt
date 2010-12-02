@@ -17,9 +17,7 @@ Add:
 
 // Sphinx Search
 $config['sphinx']['sql_host'] = '/tmp/sphinxql.sock';
-$config['sphinx']['api_host'] = '/tmp/sphinx.sock';
 //$config['sphinx']['sql_port'] = 9312;
-//$config['sphinx']['api_port'] = 3312;
 
 
 2. Build & install sphinx from sources

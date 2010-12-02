@@ -1235,7 +1235,6 @@ searchd
    
     # sockets 
     listen = {sphinx_ql}:mysql41
-    listen = {sphinx_api}
 
     # log file
 	# searchd run info is logged here

@@ -33,12 +33,12 @@ $config_templates[] = 'sphinx.conf.tpl';
 // $sphinx_conf['max_matches'] = 50000;
 
 
-define('SPHINX_PARSE_FILE', dirname(__FILE__) . '/sphinx-cfg-parse.php');
+define('SPHINX_PARSE_FILE', '/usr/local/sphinx/sphinx-cfg-parse.php');
 if (file_exists(SPHINX_PARSE_FILE))
 {
     include(SPHINX_PARSE_FILE);
 }
 else
 {
-    echo 'Check path to sphinx_parse.php file ';
+    echo 'Check path to sphinx-cfg-parse.php file ';
 }
