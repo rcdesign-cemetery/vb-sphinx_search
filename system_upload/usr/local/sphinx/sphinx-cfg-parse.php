@@ -25,6 +25,7 @@ else
     echo 'Check path to vbulletion root directory';
     die();
 }
+$sphinx_conf['vbulletin_root_path'] = $vbulletin_root_path;
 
 if (!isset($sphinx_conf['mem_limit']))
 {

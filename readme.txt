@@ -19,6 +19,8 @@ Add:
 $config['sphinx']['sql_host'] = '/tmp/sphinxql.sock';
 //$config['sphinx']['sql_port'] = 9312;
 
+// MySQL socket for xmlpipe2 data source
+$config['sphinx']['src_sql_socket'] = '/var/run/mysqld/mysqld.sock';
 
 2. Build & install sphinx from sources
 
