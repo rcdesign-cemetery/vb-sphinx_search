@@ -181,7 +181,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
 
         $this->_user_query_text = $search_text;
-        $search_text = '"' . $this->_escape_string($search_text, false) . '"/1';
+        $search_text = '"' . $this->_prepare_request_query($search_text, false) . '"/1';
 
         if ($criteria->is_title_only())
         {
@@ -192,9 +192,9 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return true;
     }
 
-    protected function _escape_string($search_text, $enable_boolean = true)
+    protected function _prepare_request_query($search_text, $enable_boolean = false)
     {
-        $text = trim($search_text);
+        $text = mb_strtolower(trim($search_text));
         if (empty($text))
         {
             return '';
@@ -217,11 +217,11 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         {
             return '';
         }
-
+/*
         $pattern = '/([\p{L}\p{Nd}]+)\-([\p{L}\p{Nd}]+)/u';
         $replacement = '(\1\2) | (\1<<\2)';
         $text = preg_replace($pattern, $replacement, $text);
-
+*/
         if (false == $enable_boolean)
         {
             $text = str_replace('-', '', $text);
@@ -437,7 +437,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         $this->_sphinx_index_list = $this->_get_sphinx_indices('vBForum_Post');
 
         $this->_user_query_text = $threadtitle;
-        $search_text = $this->_escape_string($threadtitle, false);
+        $search_text = $this->_prepare_request_query($threadtitle, false);
 
         $this->_sphinx_filters[] = 'isfirst = 1';
         $this->_sphinx_filters[] = "MATCH('@grouptitle \"$search_text\"/1')";
