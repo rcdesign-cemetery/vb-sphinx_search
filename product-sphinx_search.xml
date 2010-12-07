@@ -3,7 +3,7 @@
 <product productid="sphinx_search" active="1">
 	<title>Sphinx Search for vB4.X</title>
 	<description />
-	<version>1.1</version>
+	<version>1.2</version>
 	<url />
 	<versioncheckurl />
 	<apm_releasedate>0</apm_releasedate>
@@ -27,8 +27,8 @@ CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_queue (
 			<uninstallcode><![CDATA[
 $vbulletin->db->query_write("DROP TABLE " . TABLE_PREFIX . "vbsphinxsearch_queue");
             ]]></uninstallcode>
-        </code>
-        <code version="1.1">
+		</code>
+		<code version="1.1">
 			<installcode><![CDATA[
 $vbulletin->db->query_write("
 CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_counters (
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT exists " . TABLE_PREFIX . "vbsphinxsearch_counters (
   PRIMARY KEY ( `contenttypeid`)
 )
 ");]]></installcode>
-            <uninstallcode><![CDATA[
+			<uninstallcode><![CDATA[
 $vbulletin->db->query_write("DROP TABLE " . TABLE_PREFIX . "vbsphinxsearch_counters");
             ]]></uninstallcode>
 		</code>
@@ -61,20 +61,6 @@ $vbulletin->db->query_write("DROP TABLE " . TABLE_PREFIX . "vbsphinxsearch_count
 $vbulletin->GPC_exists['nocache'] = true;
 $vbulletin->GPC['nocache'] = true;]]></phpcode>
 		</plugin>
-		<plugin active="1" executionorder="5">
-			<title>Modify default search options</title>
-			<hookname>search_process_start</hookname>
-			<phpcode><![CDATA[if ($vbulletin->GPC_exists['query'] AND
-        !$vbulletin->GPC['searchthreadid'] AND
-        !$vbulletin->GPC_exists['sortby'] AND
-        !$vbulletin->GPC_exists['showposts'] AND
-        !$vbulletin->GPC_exists['contenttypeid'] AND
-        !$vbulletin->GPC_exists['type'])
-{
-    $vbulletin->GPC_exists['sortby'] = true;
-    $vbulletin->GPC['sortby'] = 'relevance';    
-}]]></phpcode>
-		</plugin>
 		<plugin active="1" executionorder="10">
 			<title>Show results as post for general search form(hack)</title>
 			<hookname>search_process_start</hookname>
@@ -89,8 +75,26 @@ $vbulletin->GPC['nocache'] = true;]]></phpcode>
     $vbulletin->GPC['showposts'] = true;
 }]]></phpcode>
 		</plugin>
+		<plugin active="1" executionorder="5">
+			<title>Modify default search options</title>
+			<hookname>search_process_start</hookname>
+			<phpcode><![CDATA[if ($vbulletin->GPC_exists['query'] AND
+        !$vbulletin->GPC['searchthreadid'] AND
+        !$vbulletin->GPC_exists['sortby'] AND
+        !$vbulletin->GPC_exists['showposts'] AND
+        !$vbulletin->GPC_exists['contenttypeid'] AND
+        !$vbulletin->GPC_exists['type'])
+{
+    $vbulletin->GPC_exists['sortby'] = true;
+    $vbulletin->GPC['sortby'] = 'relevance';    
+}]]></phpcode>
+		</plugin>
 	</plugins>
 	<phrases>
+		<phrasetype name="Error Messages" fieldname="error">
+			<phrase name="sph_connection_error" date="1291723019" username="Vitaly" version=""><![CDATA[Ouch! Search engine crashed!]]></phrase>
+			<phrase name="sph_invalid_query" date="1291723248" username="Vitaly" version=""><![CDATA[Internal error. Can't parse this search query.]]></phrase>
+		</phrasetype>
 		<phrasetype name="vBulletin Settings" fieldname="vbsettings">
 			<phrase name="setting_sph_similar_threads_time_line_desc" date="1287090540" username="Vitaly" version="1.0"><![CDATA[Set limit between thread last posts and current time (in days). Older threads will not be considered as similar. Set 0 to disable limit.]]></phrase>
 			<phrase name="setting_sph_similar_threads_time_line_title" date="1287090540" username="Vitaly" version="1.0"><![CDATA[Similar Threads Search Period]]></phrase>

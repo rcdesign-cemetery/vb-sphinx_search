@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<language name="Russian (RU)" vbversion="4.0.8" product="sphinx_search" type="custom">
+	<settings>
+		<options><![CDATA[1]]></options>
+		<languagecode><![CDATA[ru]]></languagecode>
+		<charset><![CDATA[UTF-8]]></charset>
+		<imagesoverride />
+		<dateoverride><![CDATA[d.m.Y]]></dateoverride>
+		<timeoverride><![CDATA[H:i]]></timeoverride>
+		<registereddateoverride><![CDATA[d.m.Y]]></registereddateoverride>
+		<calformat1override><![CDATA[j F Y]]></calformat1override>
+		<calformat2override><![CDATA[j F]]></calformat2override>
+		<logdateoverride><![CDATA[H:i, d.m.Y]]></logdateoverride>
+		<locale />
+		<decimalsep><![CDATA[.]]></decimalsep>
+		<thousandsep><![CDATA[,]]></thousandsep>
+	</settings>
+	<phrasetype name="Error Messages" fieldname="error">
+		<phrase name="sph_connection_error" date="1291723019" username="Vitaly"><![CDATA[Бида-бида! У нас навернулся поисковый движок!]]></phrase>
+		<phrase name="sph_invalid_query" date="1291723248" username="Vitaly"><![CDATA[Это ошибка! Вы не виноваты! Мы не распарсили ваш запрос!]]></phrase>
+	</phrasetype>
+</language>

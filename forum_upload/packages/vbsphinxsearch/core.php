@@ -21,6 +21,8 @@ class vBSphinxSearch_Core extends vB_Search_Core
 
     const SPH_DOC_ID_PACK_MULT = 64;
 
+    const SPH_CONNECTION_ERROR_NO = 2002;
+
     static function init()
     {
         //register implementation objects with the search system.
@@ -73,7 +75,7 @@ class vBSphinxSearch_Core extends vB_Search_Core
     {
         global $vbulletin;
 
-        if (is_null(self::$_sphinx_conection) OR !mysql_ping(self::$_sphinx_conection))
+        if (!self::$_sphinx_conection OR !mysql_ping(self::$_sphinx_conection))
         {
             $host = $vbulletin->config['sphinx']['sql_host'];
             if ( $host[0] == '/')
@@ -85,7 +87,7 @@ class vBSphinxSearch_Core extends vB_Search_Core
                 $port = $vbulletin->config['sphinx']['sql_port'];
                 $connection_string = "$host:$port";
             }
-            self::$_sphinx_conection = mysql_connect($connection_string);
+            self::$_sphinx_conection = @mysql_connect($connection_string);
         }
         return self::$_sphinx_conection;
     }

@@ -160,7 +160,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         $this->_set_limit();
 
         $query = $this->_build_query();
-        $result = $this->_run_query($query);
+        $result = $this->_run_query($query, true);
 
         return $result;
     }
@@ -391,7 +391,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return $query;
     }
 
-    protected function _run_query($query)
+    protected function _run_query($query, $show_errors = false)
     {
         // хак для выправления результатов поиска по блогам ч.1
         $blog_content_type_ids = array(
@@ -427,6 +427,15 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             }
         }
         $this->add_error(mysql_error(), $query);
+        if ($show_errors)
+        {
+            $error_message_id = 'sph_invalid_query';
+            if (vBSphinxSearch_Core::SPH_CONNECTION_ERROR_NO == mysql_errno())
+            {
+                $error_message_id = 'sph_connection_error';
+            }
+            eval(standard_error(fetch_error($error_message_id, $vbulletin->options['contactuslink'])));
+        }
         return array();
     }
 
