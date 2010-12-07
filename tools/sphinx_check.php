@@ -43,7 +43,7 @@ if ($vbulletin->GPC_exists['keywords'])
     $search_core = vB_Search_Core::get_instance();
 
     $general_search_template = 'SELECT *, groupid * 64 + contenttypeid AS gkey FROM ThreadPostMain,ThreadPostDelta WHERE deleted = 0 AND MATCH(\'"%s"/1\') GROUP BY gkey ORDER BY @weight desc LIMIT ' . RESULTS_LIMIT . ' OPTION max_matches=' . RESULTS_LIMIT;
-    $query = sprintf($general_search_template, $keywords);
+    $query = sprintf($general_search_template, _prepare_request_query($keywords, false));
     echo 'Общий запрос:<br />' . $query;
     echo '<pre>';
     _run_query($query);
@@ -53,7 +53,7 @@ if ($vbulletin->GPC_exists['keywords'])
 
     echo '<hr />';
     $similar_threads_search_template = 'SELECT *, groupid * 64 + contenttypeid AS gkey FROM ThreadPostMain,ThreadPostDelta WHERE deleted = 0 AND isfirst = 1 AND MATCH(\'@grouptitle "%s"/1\') AND contenttypeid = 1 AND groupdateline >= 1255868521 AND groupvisible = 1 GROUP BY gkey ORDER BY @weight desc LIMIT ' . RESULTS_LIMIT . ' OPTION max_matches=' . RESULTS_LIMIT;
-    $query = sprintf($similar_threads_search_template, $keywords);
+    $query = sprintf($similar_threads_search_template, _prepare_request_query($keywords, false));
     echo 'Запрос для похожих тем:<br />' . $query;
     echo '<pre>';
     _run_query($query);
@@ -86,11 +86,11 @@ function _run_query($query)
                     {
                         $thread['threadid'] = $docinfo['groupid'];
                         $thread['postidid'] = $docinfo['primaryid'];
-                        $link = '<a href="' . fetch_seo_url('thread', $thread) . '#post' . $thread['postidid'] . '">' . $thread['postidid'] .'<a>';
-                        $docinfo = array_merge(array('link'=>$link), $docinfo);
+                        $link = '<a href="' . fetch_seo_url('thread', $thread) . '#post' . $thread['postidid'] . '">' . $thread['postidid'] . '<a>';
+                        $docinfo = array_merge(array('link' => $link), $docinfo);
                     }
-                    $head = '<tr><td>'.implode('</td><td>', array_keys($docinfo)).'</td></tr>';
-                    $entry .= '<tr><td>'.implode('</td><td>', $docinfo).'</td></tr>';
+                    $head = '<tr><td>' . implode('</td><td>', array_keys($docinfo)) . '</td></tr>';
+                    $entry .= '<tr><td>' . implode('</td><td>', $docinfo) . '</td></tr>';
                 }
 
                 $table_str .= $head . $entry . '</table>';
@@ -102,4 +102,47 @@ function _run_query($query)
     }
     echo 'Ошибка: <br />' . mysql_error() . '<br />';
     return false;
+}
+
+function _prepare_request_query($search_text, $enable_boolean = false)
+{
+    $text = mb_strtolower(trim($search_text));
+    if (empty($text))
+    {
+        return '';
+    }
+    if ($enable_boolean)
+    {
+        $pattern = array('\\', '@', '~', '/');
+        $replacement = array('\\\\', '\@', '\~', '\/');
+    }
+    else
+    {
+        $pattern = array('\\', '@', '~', '/',
+            '(', ')', '|', '"', '!', '&', '\'', '^', '$', '=', '+');
+        $replacement = ' ';
+    }
+
+    $text = str_replace($pattern, $replacement, $text);
+    $text = trim($text);
+    if (empty($text))
+    {
+        return '';
+    }
+
+    /*
+      $pattern = '/([\p{L}\p{Nd}]+)\-([\p{L}\p{Nd}]+)/u';
+      $replacement = '(\1\2) | (\1<<\2)';
+      $text = preg_replace($pattern, $replacement, $text);
+     */
+
+    if (false == $enable_boolean)
+    {
+        $text = str_replace('-', '', $text);
+    }
+    // Escaping data for mysql protocol
+    global $vbulletin;
+    $text = $vbulletin->db->escape_string($text);
+
+    return $text;
 }
