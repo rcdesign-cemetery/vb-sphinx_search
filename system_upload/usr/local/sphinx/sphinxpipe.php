@@ -157,18 +157,9 @@ if (!$first OR !$last)
  * Process and print data
  */
 
-// init borders position
-$start = $first;
-$end = $first + $index_section['sql_range_step'];
-if ($end > $last)
-{
-    $end = $last;
-}
-
-
 // prepare query template
 $query_raw = str_replace('{table_prefix}', $table_prefix, trim($index_section['sql_query']));
-$search = array('$start', '$end');
+$range_marks = array('$start', '$end');
 
 
 $total_count_processed_post = 0;
@@ -176,7 +167,10 @@ $mysql_fetch_total_time = 0;
 $content_processing_total_time = 0;
 $xml_generate_total_time = 0;
 $maxid = 0;
-do
+
+
+$start = $first;
+while ($start <= $last)
 {
     $time_mysql_start = microtime(true);
     $result = array();
@@ -184,7 +178,7 @@ do
 
 
     // execute query
-    $query = str_replace($search, array($start, $end), $query_raw);
+    $query = str_replace($range_marks, array($start, $start + $index_section['sql_range_step'] - 1), $query_raw);
     $mysqli->query($query);
 
     if (!$mysqli_result = $mysqli->query($query))
@@ -232,18 +226,18 @@ do
 
 
         // get maxid for post index queries
-        $last_element = end($result);
-        $maxid = $last_element['primaryid'];
+        $tmp_element = end($result);
+        $maxid = $tmp_element['primaryid'];
 
         
         unset($contents, $result);
         print $doc->outputMemory();
         $xml_generate_total_time += ( microtime(true) - $xml_generate_time_start);
     }
-    $start = $end + 1;
-    $end += $index_section['sql_range_step'];
+    
+    $start += $index_section['sql_range_step'];
 }
-while ($end <= $last);
+
 
 
 /**
