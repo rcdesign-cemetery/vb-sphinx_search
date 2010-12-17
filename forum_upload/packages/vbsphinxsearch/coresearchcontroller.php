@@ -29,6 +29,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         'grouptitlesort',
         'usernamesort',
     );
+
     /**
      * Алиасы для вариантов сортировок.
      * Note: Алиасы для [default]username и [default]title заглушка, реальные
@@ -154,6 +155,9 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         //handle equals filters
         $this->_process_filters($equals_filters, 'make_equals_filter');
 
+        //handle noequals filters
+        $this->_process_filters($criteria->get_notequals_filters(), 'make_notequals_filter');
+
         //handle range filters
         $this->_process_filters($criteria->get_range_filters(), 'make_range_filter');
 
@@ -268,7 +272,31 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                 continue;
             }
             $index_field = $this->_field_map[$field];
-            //$type = self::$field_type_map[$field];
+
+            // prepare forumid and messagegroupid
+            if ('forumid' == $field OR 'messagegroupid' == $field)
+            {
+                if ('forumid' == $field)
+                {
+                    $content_type_id = vB_Types::instance()->getContentTypeId('vBForum_Post');
+                }
+                else
+                {
+                    $content_type_id = vB_Types::instance()->getContentTypeId('vBForum_SocialGroupMessage');
+                }
+                if (is_array($value))
+                {
+                    foreach ($value as &$id)
+                    {
+                        $id = $id * vBSphinxSearch_Core::SPH_DOC_ID_PACK_MULT + $content_type_id;
+                    }
+
+                }
+                else
+                {
+                    $value = $value * vBSphinxSearch_Core::SPH_DOC_ID_PACK_MULT + $content_type_id;
+                }
+            }
             $this->$filter_method($index_field, $value);
         }
     }
@@ -307,6 +335,28 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         else
         {
             $this->_sphinx_filters[] = "$field = $value";
+        }
+        return true;
+    }
+
+    protected function make_notequals_filter($field, $value)
+    {
+        if (is_array($value) AND 1 == count($value))
+        {
+            $value = current($value);
+        }
+        if (is_array($value))
+        {
+            // Sphinx isn't support "NOT IN" construction
+            // $this->_sphinx_filters[] = $field . ' NOT IN (' . implode(' $field = ', $value) . ')';
+            foreach ($value as $elem)
+            {
+                $this->_sphinx_filters[] = "$field <> $elem";
+            }
+        }
+        else
+        {
+            $this->_sphinx_filters[] = "$field <> $value";
         }
         return true;
     }
@@ -364,29 +414,29 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $query .= ', groupid * ' . vBSphinxSearch_Core::SPH_DOC_ID_PACK_MULT . ' + contenttypeid AS gkey';
         }
 
-        $query .= ' FROM ' . $this->_sphinx_index_list;
+        $query .= "\n FROM \n" . $this->_sphinx_index_list;
 
         if (!empty($this->_sphinx_filters))
         {
-            $query .= ' WHERE ' . implode(' AND ', $this->_sphinx_filters);
+            $query .= "\n WHERE \n" . implode(' AND ', $this->_sphinx_filters);
         }
 
         if ($this->_require_group)
         {
-            $query .= ' GROUP BY gkey';
+            $query .= "\n GROUP BY gkey";
         }
 
         if (!empty($this->_sort))
         {
-            $query .= ' ORDER BY ' . $this->_sort . ' ' . $this->_direction;
+            $query .= "\n ORDER BY " . $this->_sort . ' ' . $this->_direction;
         }
         if ($this->_limit)
         {
-            $query .= ' LIMIT ' . $this->_limit;
+            $query .= "\n LIMIT " . $this->_limit;
         }
         if ($this->_options)
         {
-            $query .= ' OPTION ' . implode(', ', $this->_options);
+            $query .= "\n OPTION " . implode(', ', $this->_options);
         }
         return $query;
     }

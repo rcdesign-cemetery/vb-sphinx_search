@@ -54,6 +54,36 @@ $vbulletin->db->query_write("DROP TABLE " . TABLE_PREFIX . "vbsphinxsearch_count
 			<hookname>admin_search_options</hookname>
 			<phpcode><![CDATA[$options['vBSphinxSearch_Core'] = 'Sphinx Search';]]></phpcode>
 		</plugin>
+		<plugin active="1" executionorder="50">
+			<title>Exclude unsearchable forums</title>
+			<hookname>search_before_process</hookname>
+			<phpcode><![CDATA[if (in_array($_REQUEST['do'],
+        array('getnew', 'getdaily', 'process', 'intro', 'finduser')))
+{
+    $vbulletin->input->clean_array_gpc('r', array(
+        'f' => TYPE_UINT,
+        'exclude' => TYPE_NOHTML,
+        'forumchoice' => TYPE_ARRAY,
+    ));
+
+    if (!array_sum($vbulletin->GPC['forumchoice']) AND !$vbulletin->GPC['f'])
+    {
+        $excluded_forum_list = array();
+        if ($vbulletin->GPC['exclude'])
+        {
+            $excluded_forum_list[] = $vbulletin->GPC['exclude'];
+        }
+        foreach ($vbulletin->forumcache as $forum)
+        {
+            if (!($forum['options'] & $vbulletin->bf_misc_forumoptions['indexposts']))
+            {
+                $excluded_forum_list[] = $forum['forumid'];
+            }
+        }
+        $vbulletin->GPC['exclude'] = implode(',', $excluded_forum_list);
+    }
+}]]></phpcode>
+		</plugin>
 		<plugin active="1" executionorder="5">
 			<title>Reset result limits for users post/threads</title>
 			<hookname>search_finduser_start</hookname>
