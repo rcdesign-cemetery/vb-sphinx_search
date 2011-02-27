@@ -1,0 +1,7 @@
+check process searchd with pidfile /var/run/searchd.pid
+    start program = "/etc/init.d/sphinx start"
+    stop program  = "/etc/init.d/sphinx stop"
+
+# this doesn't work, but pid check is enougth :)
+#    if failed unixsocket /tmp/sphinxql.sock protocol mysql then restart
+
