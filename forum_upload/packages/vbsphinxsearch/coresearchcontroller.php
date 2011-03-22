@@ -305,8 +305,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     {
         if ('prefixcrc' == $field)
         {
-            $this->_sphinx_filters[] = 'prefixcrc = ' . sprintf("%u", crc32($value[0]));
-            return true;
+            $value= $this->_prepare_prefixcrc_condition($value);
         }
 
         if ('tagid' == $field)
@@ -341,6 +340,10 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 
     protected function make_notequals_filter($field, $value)
     {
+        if ('prefixcrc' == $field)
+        {
+            $value= $this->_prepare_prefixcrc_condition($value);
+        }
         if (is_array($value) AND 1 == count($value))
         {
             $value = current($value);
@@ -359,6 +362,22 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $this->_sphinx_filters[] = "$field <> $value";
         }
         return true;
+    }
+
+    protected function _prepare_prefixcrc_condition($value)
+    {
+        if (is_array($value))
+        {
+            foreach ($value as &$elem)
+            {
+                $result[] = sprintf("%u", crc32($elem));
+            }
+        }
+        else
+        {
+            $result = sprintf("%u", crc32($elem));
+        }
+        return $result;
     }
 
     protected function make_range_filter($field, $values)
