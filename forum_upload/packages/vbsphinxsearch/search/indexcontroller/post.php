@@ -24,8 +24,8 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	/**
 	 * Index a thread
 	 *
-	 * By default this will look up all of the posts in a thread and calls the core
-	 * indexer for each one
+     * Add first post to queue for reindex 
+     * TODO: review solution after migration to rt index structure
 	 *
 	 * @param int $id the thread id
 	 */
@@ -35,53 +35,62 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	}
 
 	public function group_data_change($id)
-	{
-		$thread = vB_Legacy_Thread::create_from_id($id);
-
-		if (!$thread)
-		{
-			//skip non existant threads.
-			return false;
-		}
-
-        // todo уточнить все поля
-		$fields['contenttypeid'] = $this->contenttypeid;
-		$fields['groupid'] = $thread->get_field('threadid');
-
-        $fields['groupdateline'] = $thread->get_field('lastpost');
-        $fields['groupuserid'] = $thread->get_field('postuserid');
-        
-        $fields['prefixcrc'] = sprintf("%u", crc32($thread->get_field('prefixid')));
-
-        $fields['replycount'] = $thread->get_field('replycount');
-        $fields['views'] = $thread->get_field('views');
-
-        $fields['groupstart'] = $thread->get_field('dateline');
-        $fields['visible'] = $thread->get_field('visible');
-        $fields['groupopen'] = $thread->get_field('open');
-        $fields['groupparentid'] = $thread->get_field('forumid');
-
-		$indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
-		return $indexer->group_data_change($fields);
+    {
+        $head_post =  $this->_get_thread_primaryid($id);
+        if (!$head_post)
+        {
+            return false;
+        }
+        $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
+        return $indexer->index($head_post);
 	}
 
 	/**
-	 * Delete all of the posts in a thread.
-	 *
-	 * By default this looks up all of the post ids in a thread and
-	 * calls delete for each one
+     * Add first post to queue for reindex 
+     * TODO: review solution after migration to rt index structure
 	 *
 	 * @param int $id the thread id
 	 */
 	public function delete_thread($id)
 	{
-		$indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
-		$indexer->delete_group($this->contenttypeid, $id);
-	}
+        $head_post =  $this->_get_thread_primaryid($id);
+        if (!$head_post)
+        {
+            return false;
+        }
+        $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
+        return $indexer->delete($head_post['contenttypeid'], $head_post['primaryid']);
+    }
+
+    /**
+     * Get first postid
+     * 
+     * @param int $id
+     * @return mixed
+     */
+    protected function _get_thread_primaryid($id)
+    {
+        global $vbulletin;
+        $sql = "SELECT
+                    " . $this->contenttypeid . " AS contenttypeid,
+                    `firstpostid` AS primaryid
+                FROM
+                    " . TABLE_PREFIX . "thread
+                WHERE
+                  `threadid` = $id";
+
+        $head_post = $vbulletin->db->query_first($sql);
+		if (!$head_post)
+		{
+			//non existant thread.
+			return false;
+        }
+        return $head_post;
+    }
 
 	/**
-	* We just pass this to the core indexer, which knows how to do this.
-	*/
+     * We just pass this to the core indexer, which knows how to do this.
+     */
 	public function merge_group($oldid, $newid)
 	{
         $this->delete_thread($oldid);
