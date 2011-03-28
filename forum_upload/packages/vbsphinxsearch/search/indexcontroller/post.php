@@ -12,7 +12,8 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 {
 	/**
 	 * Delete a range of posts
-	 *
+     * Added for compatibility with original search engine
+     *
 	 * @param int $start
 	 * @param int $end
 	 */
@@ -24,9 +25,6 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	/**
 	 * Index a thread
 	 *
-     * Add first post to queue for reindex 
-     * TODO: review solution after migration to rt index structure
-	 *
 	 * @param int $id the thread id
 	 */
 	public function thread_data_change($id)
@@ -34,15 +32,20 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 		return $this->group_data_change($id);
 	}
 
+    /**
+     * Add first post to queue for reindex 
+     * TODO: review solution after migration to rt index structure
+	 *
+     */
 	public function group_data_change($id)
     {
-        $head_post =  $this->_get_thread_primaryid($id);
-        if (!$head_post)
+        $first_post_info =  $this->_get_thread_primaryid($id);
+        if (!$first_post_info)
         {
             return false;
         }
         $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
-        return $indexer->index($head_post);
+        return $indexer->index($first_post_info);
 	}
 
 	/**
@@ -53,17 +56,17 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	 */
 	public function delete_thread($id)
 	{
-        $head_post =  $this->_get_thread_primaryid($id);
-        if (!$head_post)
+        $first_post_info =  $this->_get_thread_primaryid($id);
+        if (!$first_post_info)
         {
             return false;
         }
         $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
-        return $indexer->delete($head_post['contenttypeid'], $head_post['primaryid']);
+        return $indexer->delete($first_post_info['contenttypeid'], $first_post_info['primaryid']);
     }
 
     /**
-     * Get first postid
+     * Get first post info (array with contenttypeid and postid as keys)
      * 
      * @param int $id
      * @return mixed
@@ -79,13 +82,13 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
                 WHERE
                   `threadid` = $id";
 
-        $head_post = $vbulletin->db->query_first($sql);
-		if (!$head_post)
+        $first_post_info = $vbulletin->db->query_first($sql);
+		if (!$first_post_info)
 		{
 			//non existant thread.
 			return false;
         }
-        return $head_post;
+        return $first_post_info;
     }
 
 	/**

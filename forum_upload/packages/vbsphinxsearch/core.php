@@ -6,23 +6,50 @@ if (!defined('VB_ENTRY'))
 //require_once (DIR . '/packages/vbdbsearch/indexer.php');
 //require_once (DIR . '/packages/vbdbsearch/coresearchcontroller.php');
 
-
+/**
+ * Sphinx search engine, based on SphinxQL protocol.
+ *
+ * Note: vBulletin use stupid application design, that is why all methods are static
+ */
 class vBSphinxSearch_Core extends vB_Search_Core
 {
+    /**
+     * Map for sphinx indexes.
+     * For each content type used main+delta shema
+     */
     protected static $_sphinx_index_map = array();
-    protected static $_sphinx_client = NULL;
+
+    /**
+     * resouce for sphinx conection.
+     * Note: for connection to sphinx used:
+     *       http://php.net/manual/en/book.mysql.php
+     */
     protected static $_sphinx_conection = NULL;
 
-    const SPHINX_TIMEOUT = 30;
+    /**
+     * This const used then vBulletin resulys limit dosen't set
+     */
+    const SPH_DEFAULT_RESULTS_LIMIT = 50000;
 
-    const DEFAULT_LIMIT = 50000;
+    /**
+     * Reconnections limit for query
+     */
+    const SPH_RECONNECT_LIMIT = 3;
 
-    const RECONNECT_LIMIT = 3;
-
+    /**
+     * Multiplier using to create sphinx docid based on the contenttypeid and item id
+     */
     const SPH_DOC_ID_PACK_MULT = 64;
 
+    /**
+     * Mysql errorno used in reconnection
+     */
     const SPH_CONNECTION_ERROR_NO = 2002;
 
+    /**
+     * Mandatory to overwrite for init specific search components
+     *
+     */
     static function init()
     {
         //register implementation objects with the search system.
@@ -31,6 +58,7 @@ class vBSphinxSearch_Core extends vB_Search_Core
         $search->register_index_controller('vBForum', 'Post', new vBSphinxSearch_Search_IndexController_Post());
         $search->register_index_controller('vBBlog', 'BlogComment', new vBSphinxSearch_Search_IndexController_BlogComment());
         $search->register_index_controller('vBBlog', 'BlogEntry', new vBSphinxSearch_Search_IndexController_BlogEntry());
+        $search->register_index_controller('vBForum', 'SocialGroupMessage', new vBSphinxSearch_Search_IndexController_SocialGroupMessage());
         $__vBSphinxSearch_CoreSearchController = new vBSphinxSearch_CoreSearchController();
         $search->register_default_controller($__vBSphinxSearch_CoreSearchController);
 
@@ -95,7 +123,7 @@ class vBSphinxSearch_Core extends vB_Search_Core
     public static function get_results_limit()
     {
         global $vbulletin;
-        $limit = self::DEFAULT_LIMIT;
+        $limit = self::SPH_DEFAULT_RESULTS_LIMIT;
         if (0 < $vbulletin->options['maxresults'])
         {
             $limit = (int) $vbulletin->options['maxresults'];

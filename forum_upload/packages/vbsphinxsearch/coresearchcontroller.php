@@ -6,6 +6,12 @@ if (!defined('VB_ENTRY'))
 require_once(DIR . '/vb/search/searchcontroller.php');
 require_once(DIR . '/vb/search/core.php');
 
+/**
+ * Searcg controller for sphinx search engine.
+ * Process all content type.
+ *
+ * Note: Idea about extend thread search controller was failed. Thanks vBulletion team.
+ */
 class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 {
     const SIMILAR_THREAD_LIMIT = 5;
@@ -31,9 +37,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     );
 
     /**
-     * Алиасы для вариантов сортировок.
-     * Note: Алиасы для [default]username и [default]title заглушка, реальные
-     * будут добавленны позже
+     * Map for sort varians
+     * Note: maps for [default]username and [default]title are stub
      *
      * @var array
      */
@@ -62,7 +67,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         'contenttype' => 'contenttypeid',
         'defaultuser' => 'groupuserid',
         'defaultdateline' => 'groupdateline',
-        'tag' => 'tagid',
+//        'tag' => 'tagid', 
         /* Threads and posts */
         'user' => 'userid',
         'groupuser' => 'groupuserid',
@@ -102,6 +107,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
+     * Added for compatibility with original search engine
      *
      */
     public function get_supported_filters($contenttype)
@@ -110,7 +116,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     *
+     * Added for compatibility with original search engine
      */
     public function get_supported_sorts($contenttype)
     {
@@ -118,10 +124,22 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * 	When we reuse the search controller we need to clear the arrays.
+     * When we reuse the search controller we need to clear the arrays.
+     * Note: This method has no calls.
+     *       Added for compatibility with original search engine
+     *
      */
     public function clear()
     {
+        $this->_sphinx_filters = array('deleted = 0');
+        $this->_sphinx_index_list;
+        $this->_require_group = true;
+        $this->_tag_search = false;
+        $this->_sort = null;
+        $this->_direction = null;
+        $this->_single_index_enabled = false;
+        $this->_limit = null;
+        $this->_options = array();
         return true;
     }
 
@@ -148,8 +166,6 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $this->_process_sort($sort, $direction);
         }
 
-        $this->_process_keywords_filters($user, $criteria);
-
         $equals_filters = $criteria->get_equals_filters();
 
         //handle equals filters
@@ -161,11 +177,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         //handle range filters
         $this->_process_filters($criteria->get_range_filters(), 'make_range_filter');
 
+        $this->_process_keywords_filters($user, $criteria);
+
         $this->_set_limit();
 
         $query = $this->_build_query();
         $result = $this->_run_query($query, true);
-
         return $result;
     }
 
@@ -192,10 +209,28 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $search_text = '@grouptitle ' . $search_text;
             $this->_sphinx_filters[] = 'isfirst = 1';
         }
-        $this->_sphinx_filters[] = "MATCH('$search_text')";
+        else
+        {
+            // @keywordtext include text and title
+            $search_text = '@keywordtext ' . $search_text;
+        }
+
+        $tag = $criteria->get_equals_filter('tag');
+        if (0 < $tag)
+        {
+            $this->_tag_search = true;
+            $search_text .= ' @taglist ' . $tag;
+        }
+
+        // MATCH will be first condition
+        array_unshift($this->_sphinx_filters, "MATCH('$search_text')");
         return true;
     }
 
+    /**
+     * Cleanup and escape search text
+     *
+     */
     protected function _prepare_request_query($search_text, $enable_boolean = false)
     {
         $text = mb_strtolower(trim($search_text));
@@ -257,7 +292,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * 	Handle processing for the equals / range filters
+     * Handle processing for the equals / range filters
+     *
      * @param array $filters an array of "searchfields" => values to process
      * @param array $filter_method string The name of the method to call to create a
      * 		where snippet for this kind of filter (currently equals and range -- not planning
@@ -301,18 +337,19 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
     }
 
+    /**
+     * Process equal condition from user criteria
+     * Note: Prefix need special processing.
+     *       $value can be array or simple type.
+     * 
+     */
     protected function make_equals_filter($field, $value)
     {
         if ('prefixcrc' == $field)
         {
             $value= $this->_prepare_prefixcrc_condition($value);
         }
-
-        if ('tagid' == $field)
-        {
-            $this->_tag_search = true;
-        }
-
+   
         if ('contenttypeid' == $field)
         {
             $key = array_search(vB_Types::instance()->getContentTypeId('vBForum_Thread'), $value);
@@ -338,6 +375,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return true;
     }
 
+    /**
+     * Process not equal condition from user criteria
+     * Note: Prefix need special processing.
+     *       $value can be array or simple type.
+     * 
+     */
     protected function make_notequals_filter($field, $value)
     {
         if ('prefixcrc' == $field)
@@ -350,12 +393,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
         if (is_array($value))
         {
-            // Sphinx isn't support "NOT IN" construction
-            // $this->_sphinx_filters[] = $field . ' NOT IN (' . implode(' $field = ', $value) . ')';
-            foreach ($value as $elem)
-            {
-                $this->_sphinx_filters[] = "$field <> $elem";
-            }
+            $this->_sphinx_filters[] = $field . ' NOT IN (' . implode(', ', $value) . ')';
         }
         else
         {
@@ -364,6 +402,10 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return true;
     }
 
+    /**
+     * Special processing for prefix
+     *
+     */
     protected function _prepare_prefixcrc_condition($value)
     {
         if (is_array($value))
@@ -380,6 +422,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return $result;
     }
 
+    /**
+     * Process range conditions
+     * Note: $value always array. 
+     *       Used for beetwin condition, first element min and second max.
+     *
+     */
     protected function make_range_filter($field, $values)
     {
         if (!is_null($values[0]) AND !is_null($values[1]))
@@ -397,6 +445,11 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return true;
     }
 
+    /**
+     * Process sort, used special fild maps $this->_sort_map
+     * Note: rank and relevance are equal
+     *
+     */
     protected function _process_sort($sort = 'relevance', $direction = 'desc')
     {
         $this->_direction = $direction;
@@ -417,10 +470,15 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return true;
     }
 
+    /**
+     * Build (not execute) query by prepared conditions
+     *
+     */
     protected function _build_query()
     {
         global $vbulletin;
 
+        // get all avaliable indexes if search without specific content types
         if (empty($this->_sphinx_index_list))
         {
             $this->_sphinx_index_list = $this->_get_sphinx_indices();
@@ -460,13 +518,18 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return $query;
     }
 
+    /**
+     * Run query. And form result to vBulletin format
+     * Note: Blog have exlusive result format.
+     *
+     */
     protected function _run_query($query, $show_errors = false)
     {
-        // хак для выправления результатов поиска по блогам ч.1
+        // Hack for correcting search blog result for blog (part 1)
         $blog_content_type_ids = array(
             vB_Types::instance()->getContentTypeId('vBBlog_BlogEntry'),
             vB_Types::instance()->getContentTypeId('vBBlog_BlogComment'));
-        for ($i = 0; $i < vBSphinxSearch_Core::RECONNECT_LIMIT; $i++)
+        for ($i = 0; $i < vBSphinxSearch_Core::SPH_RECONNECT_LIMIT; $i++)
         {
             $con = vBSphinxSearch_Core::get_sphinxql_conection();
             if (false != $con)
@@ -477,7 +540,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                     while ($docinfo = mysql_fetch_assoc($result_res))
                     {
                         unset($row);
-                        // хак для выправления результатов поиска по блогам ч.2
+                        // Hack for correcting search blog result for blog (part 1)
                         if (in_array($docinfo['contenttypeid'], $blog_content_type_ids))
                         {
                             $row[] = $blog_content_type_ids[0];
@@ -508,6 +571,10 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return array();
     }
 
+    /**
+     * Get similar threads. Match only first post titles, have specific result limit
+     *
+     */
     public function get_similar_threads($threadtitle, $threadid = 0)
     {
         global $vbulletin;
@@ -550,6 +617,11 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return $similarthreads;
     }
 
+    /**
+     * Get list of index for current query.
+     * Also taken into account taggable of content type(if search by tag)
+     *
+     */
     protected function _get_sphinx_indices($content_types=null)
     {
         $indexes = array();
@@ -560,8 +632,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
         elseif (empty($content_types))
         {
-            // хак. результат поиска будет показываться как отдельный пост,
-            // но будет группировка по тредам
+            // hack. Result will by show as post,
+            // but post from one thread will be grouped
             $this->_require_group = true;
         }
         $searchable_contenttypes = $this->_fetch_content_types('searchable');
@@ -600,6 +672,11 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return implode(", ", $indexes);
     }
 
+    /**
+     * Fetch content type by filter.
+     * In this script used only "Searchable" and "Taggable"
+     *
+     */
     protected function _fetch_content_types($filterName = 'Searchable')
     {
         $collection = new vB_Collection_ContentType();
@@ -621,6 +698,11 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         return $content_types;
     }
 
+    /**
+     * Set result limit.
+     * Note: Set max_mathes option because default value is 500 
+     *
+     */
     protected function _set_limit($limit = null)
     {
         if (is_null($limit))
