@@ -1,10 +1,12 @@
 <?php
+/**
+ * Init all search classes fro indexer & searcher
+ * + some basic low-level functions 
+ */
+
 
 if (!defined('VB_ENTRY'))
     die('Access denied.');
-
-//require_once (DIR . '/packages/vbdbsearch/indexer.php');
-//require_once (DIR . '/packages/vbdbsearch/coresearchcontroller.php');
 
 /**
  * Sphinx search engine, based on SphinxQL protocol.

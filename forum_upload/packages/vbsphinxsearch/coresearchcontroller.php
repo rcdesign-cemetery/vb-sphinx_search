@@ -1,5 +1,7 @@
 <?php
-
+/**
+ * All search requests processed here, in single file
+ */
 if (!defined('VB_ENTRY'))
     die('Access denied.');
 
@@ -7,15 +9,17 @@ require_once(DIR . '/vb/search/searchcontroller.php');
 require_once(DIR . '/vb/search/core.php');
 
 /**
- * Searcg controller for sphinx search engine.
- * Process all content type.
+ * Search controller for sphinx search engine.
+ * Process all content types.
  *
- * Note: Idea about extend thread search controller was failed. Thanks vBulletion team.
+ * Note: Idea to extend thread search controller failed. Thanks vBulletion team.
  */
 class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 {
     const SIMILAR_THREAD_LIMIT = 5;
 
+    // Intermediate variables.
+    // Used to convert input request to sphinx query
     protected $_sphinx_filters = array('deleted = 0');
     protected $_sphinx_index_list;
     protected $_require_group = true;
@@ -25,22 +29,18 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     protected $_single_index_enabled = false;
     protected $_limit = null;
     protected $_options = array();
-    /**
-     *  For error info only
-     *
-     * @var string
-     */
-    protected $_user_query_text = '';
+    // Dirty hack. When we sort by sql_attr_str2ordinal field, we
+    // can't merge delta index. Define here, when exclude it.
     protected $_sort_fields_with_single_index = array(
         'grouptitlesort',
         'usernamesort',
     );
+    // Used ONLY for error logs, not needed anywhere else
+    protected $_user_query_text = '';
 
     /**
-     * Map for sort varians
-     * Note: maps for [default]username and [default]title are stub
-     *
-     * @var array
+     * Map _sort_ attributes: input var name => sphinx field name
+     * That's because we use unified index structure for all content types
      */
     protected $_sort_map = array(
         'user' => 'usernamesort',
@@ -50,7 +50,6 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         'defaulttitle' => 'grouptitlesort',
         'defaultdateline' => 'groupdateline',
         'defaultuserid' => 'userid',
-        /* Threads and posts */
         'dateline' => 'dateline',
         'groupdateline' => 'groupdateline',
         'threadstart' => 'groupdateline',
@@ -59,16 +58,17 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         'replycount' => 'replycount',
         'groupviews' => 'views',
         'views' => 'views',
-        /* blog entry */
         'bglastcomment' => 'groupdateline',
     );
+    
+    /**
+     * Map _search_ attributes: input var name => sphinx field name
+     * That's because we use unified index structure for all content types
+     */
     protected $_field_map = array(
-        /* Common Search */
         'contenttype' => 'contenttypeid',
         'defaultuser' => 'groupuserid',
         'defaultdateline' => 'groupdateline',
-//        'tag' => 'tagid', 
-        /* Threads and posts */
         'user' => 'userid',
         'groupuser' => 'groupuserid',
         'dateline' => 'dateline',
@@ -78,16 +78,13 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         'groupreplycount' => 'replycount',
         'prefixid' => 'prefixcrc',
         'groupid' => 'groupid',
-        /* Social discussion and group messages */
-
         'messagegroupid' => 'groupparentid',
-        /* Social groups */
         'sgcategory' => 'socialgroupcategoryid',
         'sgmemberlimit' => 'members',
         'sgmessagelimit' => 'messages',
         'sgpicturelimit' => 'pictures',
         'sgdiscussionlimit' => 'discussions',
-        /* Forums */
+        /* Forums description search disabled */
 //		'forumthreadlimit' => 'threadcount',
 //		'forumpostlimit' => 'replycount',
 //		'forumpostdateline' => 'defaultdateline',
@@ -108,7 +105,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 
     /**
      * Added for compatibility with original search engine
-     *
+     * Since not used there, leave it empty.
      */
     public function get_supported_filters($contenttype)
     {
@@ -117,6 +114,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 
     /**
      * Added for compatibility with original search engine
+     * Since not used there, leave it empty.
      */
     public function get_supported_sorts($contenttype)
     {
@@ -124,10 +122,10 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * When we reuse the search controller we need to clear the arrays.
-     * Note: This method has no calls.
-     *       Added for compatibility with original search engine
-     *
+     * Added for compatibility with original search engine
+     * Seems to not used anywhere.
+     * 
+     * Cleanup search params, if we plan to reuse dirty class
      */
     public function clear()
     {
@@ -144,7 +142,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Get the results for the requested search
+     * Search. Main place, where all things go :)
+     * Builds SQL query, send request & pre-process result
      *
      * @param vB_Legacy_Current_User $user user requesting the search
      * @param vB_Search_Criteria $criteria search criteria to process
@@ -153,32 +152,32 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
      */
     public function get_results($user, $criteria)
     {
+        // prepare MATCH part of query
+        $this->_process_keywords_filters($user, $criteria);
+
+        // Result grouping. We can show all found posts, or
+        // just the best post for each thread.
         if (vB_Search_Core::GROUP_NO == $criteria->get_grouped())
         {
             $this->_require_group = false;
         }
+
+        // handle "equal" filters
+        $this->_process_filters($criteria->get_equals_filters(), 'make_equals_filter');
+        // handle "not equal" filters
+        $this->_process_filters($criteria->get_notequals_filters(), 'make_notequals_filter');
+        // handle "range" filters
+        $this->_process_filters($criteria->get_range_filters(), 'make_range_filter');
+
+        // handle sorting options
         $sort = $criteria->get_sort();
-
-        $direction = (strtolower($criteria->get_sort_direction()) == 'desc') || strtolower($criteria->get_sort_direction()) == 'descending' ? 'desc' : 'asc';
-
+        $direction = strtolower($criteria->get_sort_direction()) == 'desc' ? 'desc' : 'asc';
         if ($sort)
         {
             $this->_process_sort($sort, $direction);
         }
 
-        $equals_filters = $criteria->get_equals_filters();
-
-        //handle equals filters
-        $this->_process_filters($equals_filters, 'make_equals_filter');
-
-        //handle noequals filters
-        $this->_process_filters($criteria->get_notequals_filters(), 'make_notequals_filter');
-
-        //handle range filters
-        $this->_process_filters($criteria->get_range_filters(), 'make_range_filter');
-
-        $this->_process_keywords_filters($user, $criteria);
-
+        // set sphinx-specific limits
         $this->_set_limit();
 
         $query = $this->_build_query();
@@ -187,7 +186,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Process the filters for the query string
+     * Make MATCH part of query (keywords + tags)
      *
      * @param vB_Legacy_Current_User $user user requesting the search
      * @param vB_Search_Criteria $criteria search criteria to process
@@ -211,7 +210,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
         else
         {
-            // @keywordtext include text and title
+            // @keywordtext include text & title (concated in index rule)
             $search_text = '@keywordtext ' . $search_text;
         }
 
@@ -222,7 +221,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $search_text .= ' @taglist ' . $tag;
         }
 
-        // MATCH will be first condition
+        // MATCH will be at first place in WHERE
         array_unshift($this->_sphinx_filters, "MATCH('$search_text')");
         return true;
     }
@@ -233,11 +232,16 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
      */
     protected function _prepare_request_query($search_text, $enable_boolean = false)
     {
+		// all to lowercase
         $text = mb_strtolower(trim($search_text));
+        
         if (empty($text))
         {
             return '';
         }
+        
+        // if boolean mode enabled - then escape special chars.
+        // if disabled - remove all possible boolead operands.
         if ($enable_boolean)
         {
             $pattern = array('\\', '@', '~', '/');
@@ -249,7 +253,6 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                 '(', ')', '|', '"', '!', '&', '\'', '^', '$', '=', '+');
             $replacement = ' ';
         }
-
         $text = str_replace($pattern, $replacement, $text);
         $text = trim($text);
         if (empty($text))
@@ -257,14 +260,19 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             return '';
         }
 /*
+		// Special street magick to play with '-'.
+		// Not compatible with quorum
         $pattern = '/([\p{L}\p{Nd}]+)\-([\p{L}\p{Nd}]+)/u';
         $replacement = '(\1\2) | (\1<<\2)';
         $text = preg_replace($pattern, $replacement, $text);
 */
+		// !!! Remove if dashes enabled
+		// Don't forget to remove in indexer too
         if (false == $enable_boolean)
         {
             $text = str_replace('-', '', $text);
         }
+        
         // Escaping data for mysql protocol
         global $vbulletin;
         $text = $vbulletin->db->escape_string($text);
@@ -273,7 +281,9 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Get the search query string in the mysql full text format
+     * Hack to get original (unparced) text from search request.
+     * Because vBulletin transform it in very stupid way.
+     * Then fill some dependent variables.
      *
      * The word build up is taken from the socialgroup/blog implementation
      * The natural language hack is from search.php
@@ -303,15 +313,17 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     {
         foreach ($filters as $field => $value)
         {
+			// names mapping to search index fields
             if (!array_key_exists($field, $this->_field_map))
             {
                 continue;
             }
             $index_field = $this->_field_map[$field];
 
-            // prepare forumid and messagegroupid
+            // bits mapping for forumid and messagegroupid
             if ('forumid' == $field OR 'messagegroupid' == $field)
             {
+				// catch content type (see upper 'if' condition) 
                 if ('forumid' == $field)
                 {
                     $content_type_id = vB_Types::instance()->getContentTypeId('vBForum_Post');
@@ -320,6 +332,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                 {
                     $content_type_id = vB_Types::instance()->getContentTypeId('vBForum_SocialGroupMessage');
                 }
+                
+                // combine ID with content type,
                 if (is_array($value))
                 {
                     foreach ($value as &$id)
@@ -349,7 +363,9 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         {
             $value= $this->_prepare_prefixcrc_condition($value);
         }
-   
+
+		// vBulletin uses 2 separate indexes for threads & posts.
+		// We uses single. Substitute vBForum_Thread -> vBForum_Post
         if ('contenttypeid' == $field)
         {
             $key = array_search(vB_Types::instance()->getContentTypeId('vBForum_Thread'), $value);
@@ -360,16 +376,15 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $this->_sphinx_index_list = $this->_get_sphinx_indices($value);
         }
 
-        if (is_array($value) AND 1 == count($value))
-        {
-            $value = current($value);
-        }
-        if (is_array($value))
+        if (is_array($value) AND count($value) > 1)
         {
             $this->_sphinx_filters[] = $field . ' IN (' . implode(', ', $value) . ')';
         }
         else
         {
+			if (is_array($value)) {
+				$value = current($value);
+			}
             $this->_sphinx_filters[] = "$field = $value";
         }
         return true;
@@ -387,19 +402,20 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         {
             $value= $this->_prepare_prefixcrc_condition($value);
         }
-        if (is_array($value) AND 1 == count($value))
+
+        if (is_array($value) AND count($value) > 1)
         {
-            $value = current($value);
-        }
-        if (is_array($value))
-        {
-            $this->_sphinx_filters[] = $field . ' NOT IN (' . implode(', ', $value) . ')';
+            $this->_sphinx_filters[] = $field . ' IN (' . implode(', ', $value) . ')';
         }
         else
         {
-            $this->_sphinx_filters[] = "$field <> $value";
+			if (is_array($value)) {
+				$value = current($value);
+			}
+            $this->_sphinx_filters[] = "$field = $value";
         }
-        return true;
+
+       return true;
     }
 
     /**
