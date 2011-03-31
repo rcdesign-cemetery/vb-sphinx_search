@@ -59,6 +59,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         'groupviews' => 'views',
         'views' => 'views',
         'bglastcomment' => 'groupdateline',
+        'rank' => '@weight',
+        'relevance' => '@weight'
     );
     
     /**
@@ -153,7 +155,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     public function get_results($user, $criteria)
     {
         // prepare MATCH part of query
-        $this->_process_keywords_filters($user, $criteria);
+        $this->_process_keywords($user, $criteria);
 
         // Result grouping. We can show all found posts, or
         // just the best post for each thread.
@@ -191,7 +193,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
      * @param vB_Legacy_Current_User $user user requesting the search
      * @param vB_Search_Criteria $criteria search criteria to process
      */
-    protected function _process_keywords_filters($user, $criteria)
+    protected function _process_keywords($user, $criteria)
     {
         $search_text = $this->_get_search_text($user, $criteria);
 
@@ -457,19 +459,17 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     {
         $this->_direction = $direction;
 
-        if ($sort == 'rank' OR $sort == 'relevance')
-        {
-            $this->_sort = '@weight';
-            return true;
-        }
-
         // map vbulletin terms to sphinx ones
-        $this->_sort = $sort;
         if (array_key_exists($sort, $this->_sort_map))
         {
             $this->_sort = $this->_sort_map[$sort];
         }
-
+        else
+        {
+            $this->add_error('Invalid sort condition: ' . $sort);
+            global $vbulletin;
+            eval(standard_error(fetch_error('sph_invalid_query', $vbulletin->options['contactuslink'])));
+        }
         // Disable delta index if attr_str_ordered used
         if (in_array($this->_sort, $this->_sort_fields_with_single_index))
         {
@@ -580,7 +580,6 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                          * View does not support comments display as 'posts'
                          * 
                          */
-                        contenttypeid
                         if (in_array($docinfo['contenttypeid'], $blog_content_type_ids))
                         {
                             $row[] = $blog_content_type_ids[0];
@@ -609,6 +608,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             {
                 $error_message_id = 'sph_connection_error';
             }
+            global $vbulletin;
             eval(standard_error(fetch_error($error_message_id, $vbulletin->options['contactuslink'])));
         }
         
