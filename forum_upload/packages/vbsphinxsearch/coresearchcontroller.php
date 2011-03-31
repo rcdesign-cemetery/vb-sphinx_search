@@ -350,7 +350,17 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             }
             if ('prefixcrc' == $index_field)
             {
-                $value= $this->_prepare_prefixcrc_condition($value);
+                if (is_array($value))
+                {
+                    foreach ($value as &$elem)
+                    {
+                        $elem = sprintf("%u", crc32($elem));
+                    }
+                }
+                else
+                {
+                    $value = sprintf("%u", crc32($elem));
+                }
             }
             $this->$filter_method($index_field, $value);
         }
@@ -378,7 +388,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
 
         if (is_array($value) AND count($value) > 1)
         {
-            $this->_sphinx_filters[] = $field . ' NOT IN (' . implode(', ', $value) . ')';
+            $this->_sphinx_filters[] = $field . ' IN (' . implode(', ', $value) . ')';
         }
         else
         {
@@ -400,37 +410,17 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     {
         if (is_array($value) AND count($value) > 1)
         {
-            $this->_sphinx_filters[] = $field . ' IN (' . implode(', ', $value) . ')';
+            $this->_sphinx_filters[] = $field . ' NOT IN (' . implode(', ', $value) . ')';
         }
         else
         {
 			if (is_array($value)) {
 				$value = current($value);
 			}
-            $this->_sphinx_filters[] = "$field = $value";
+            $this->_sphinx_filters[] = "$field <> $value";
         }
 
        return true;
-    }
-
-    /**
-     * Special processing for prefix
-     *
-     */
-    protected function _prepare_prefixcrc_condition($value)
-    {
-        if (is_array($value))
-        {
-            foreach ($value as &$elem)
-            {
-                $result[] = sprintf("%u", crc32($elem));
-            }
-        }
-        else
-        {
-            $result = sprintf("%u", crc32($elem));
-        }
-        return $result;
     }
 
     /**
