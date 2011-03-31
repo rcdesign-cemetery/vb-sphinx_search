@@ -348,6 +348,9 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                     $value = $value * vBSphinxSearch_Core::SPH_DOC_ID_PACK_MULT + $content_type_id;
                 }
             }
+            
+            // We get prefix as string but store in intex as int.
+            // Should convert it.
             if ('prefixcrc' == $index_field)
             {
                 if (is_array($value))
@@ -359,7 +362,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                 }
                 else
                 {
-                    $value = sprintf("%u", crc32($elem));
+                    $value = sprintf("%u", crc32($value));
                 }
             }
             $this->$filter_method($index_field, $value);
@@ -447,23 +450,27 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Process sort, used special fild maps $this->_sort_map
-     * Note: rank and relevance are equal
-     *
+     * Process sort conditions
+     * 
      */
     protected function _process_sort($sort = 'relevance', $direction = 'desc')
     {
         $this->_direction = $direction;
+
         if ($sort == 'rank' OR $sort == 'relevance')
         {
             $this->_sort = '@weight';
             return true;
         }
+
+        // map vbulletin terms to sphinx ones
         $this->_sort = $sort;
         if (array_key_exists($sort, $this->_sort_map))
         {
             $this->_sort = $this->_sort_map[$sort];
         }
+
+        // Disable delta index if attr_str_ordered used
         if (in_array($this->_sort, $this->_sort_fields_with_single_index))
         {
             $this->_single_index_enabled = true;
@@ -472,7 +479,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Build (not execute) query by prepared conditions
+     * Build (not execute) search query, using prepared conditions
      *
      */
     protected function _build_query()
@@ -508,10 +515,16 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         {
             $query .= "\n ORDER BY " . $this->_sort . ' ' . $this->_direction;
         }
+        
+        // That's not from vB params! Default results count is 500.
+        // Due to stupid vB search metod - it want all results at once,
+        // don't support paging.
         if ($this->_limit)
         {
             $query .= "\n LIMIT " . $this->_limit;
         }
+        
+        // Used when limit set & for future extentions (weights, rankers etc.)
         if ($this->_options)
         {
             $query .= "\n OPTION " . implode(', ', $this->_options);
@@ -520,16 +533,22 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Run query. And form result to vBulletin format
-     * Note: Blog have exlusive result format.
+     * Run query & transform result to vBulletin format
+     * 
+     * Note: Blogs have unique result format. I think, system architect
+     * should die or stop prorgamming.
      *
      */
     protected function _run_query($query, $show_errors = false)
     {
-        // Hack for correcting search blog result for blog (part 1)
+        // Hack to fix blog search result (part 1)
+        // Big brother will look for this content types in result,
+        // to update data
         $blog_content_type_ids = array(
             vB_Types::instance()->getContentTypeId('vBBlog_BlogEntry'),
             vB_Types::instance()->getContentTypeId('vBBlog_BlogComment'));
+
+        // Connect to sphinx & get result
         for ($i = 0; $i < vBSphinxSearch_Core::SPH_RECONNECT_LIMIT; $i++)
         {
             $con = vBSphinxSearch_Core::get_sphinxql_conection();
@@ -541,7 +560,27 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                     while ($docinfo = mysql_fetch_assoc($result_res))
                     {
                         unset($row);
-                        // Hack for correcting search blog result for blog (part 1)
+                        
+                        /* Hack to update blog results (uses different format, part 2)
+                         * 
+                         * blog row content:
+                         * 
+                         *   contenttypeid,
+                         *   primaryid,
+                         *   groupid,
+                         *   empty_string
+                         * 
+                         * other results:
+                         * 
+                         *   contenttypeid,
+                         *   groupid,
+                         *   empty_string
+                         * 
+                         * For blog, contenttypeid should be always Blog Entry, because
+                         * View does not support comments display as 'posts'
+                         * 
+                         */
+                        contenttypeid
                         if (in_array($docinfo['contenttypeid'], $blog_content_type_ids))
                         {
                             $row[] = $blog_content_type_ids[0];
@@ -551,14 +590,17 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                             $row[] = $docinfo['contenttypeid'];
                             $row[] = $docinfo['primaryid'];
                         }
+                        
                         $row[] = $docinfo['groupid'];
                         $row[] = '';
+                        
                         $result[] = $row;
                     }
                     return $result;
                 }
             }
         }
+        
         $this->add_error(mysql_error(), $query);
         if ($show_errors)
         {
@@ -569,6 +611,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             }
             eval(standard_error(fetch_error($error_message_id, $vbulletin->options['contactuslink'])));
         }
+        
         return array();
     }
 
