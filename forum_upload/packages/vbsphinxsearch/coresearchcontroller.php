@@ -616,8 +616,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Get similar threads. Match only first post titles, have specific result limit
+     * Get similar threads. Match only first post titles.
+     * Returns ONLY 5 most relevant results (currently)
      *
+     * @param string $threadtitle - text to search "similar"
+     * @param int $threadid - ID to exclude. Important, to exclude self
+     *                        when rebuild similar threads.
      */
     public function get_similar_threads($threadtitle, $threadid = 0)
     {
@@ -628,8 +632,8 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         $this->_user_query_text = $threadtitle;
         $search_text = $this->_prepare_search_text($threadtitle, false);
 
-        $this->_sphinx_filters[] = 'isfirst = 1';
         $this->_sphinx_filters[] = "MATCH('@grouptitle \"$search_text\"/1')";
+        $this->_sphinx_filters[] = 'isfirst = 1';
         $this->_sphinx_filters[] = 'contenttypeid = ' . vB_Types::instance()->getContentTypeId('vBForum_Post');
 
         if (0 < (int)$vbulletin->options['sph_similar_threads_time_line'])
@@ -637,12 +641,13 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             $time_line = TIMENOW - $vbulletin->options['sph_similar_threads_time_line'] * 24 * 60 * 60;
             $this->_sphinx_filters[] = 'groupdateline >= ' . $time_line;
         }
+
         $this->_sphinx_filters[] = 'groupvisible = 1';
+
         if (0 < (int)$threadid)
         {
             $this->_sphinx_filters[] = 'groupid <> ' . $threadid;
         }
-        
 
         $this->_process_sort('relevance');
 
@@ -662,8 +667,7 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
     }
 
     /**
-     * Get list of index for current query.
-     * Also taken into account taggable of content type(if search by tag)
+     * Build list of indexes, required for used content types.
      *
      */
     protected function _get_sphinx_indices($content_types=null)
@@ -680,26 +684,24 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
             // but post from one thread will be grouped
             $this->_require_grouping = true;
         }
-        $searchable_contenttypes = $this->_fetch_content_types('searchable');
-        if (is_array($content_types) && count($content_types) > 0)
-        {
-            $content_types = array_intersect($searchable_contenttypes, $content_types);
-        }
-        else
-        {
-            $content_types = $searchable_contenttypes;
-        }
 
-        if ($this->_tag_search)
+        $collection = new vB_Collection_ContentType();
+        $collection->filterSearchable(true);
+        foreach ($collection AS $type)
         {
-            // Select only the taggable types
-            $taggable_contenttypes = $this->_fetch_content_types('taggable');
-            $content_types = array_intersect($taggable_contenttypes, $content_types);
-        }
+            $content_type_id = $type->getID();
+            if ($content_type_id == vB_Types::instance()->getContentTypeId('vBForum_Thread'))
+            {
+                // We use the same index for Posts & Threads
+                $content_type_id = vB_Types::instance()->getContentTypeId('vBForum_Post');
+            }
+            
+            if (!empty($content_types) AND !in_array($content_type_id, $content_types))
+            {
+                continue;
+            }
 
-        foreach ($content_types as $type)
-        {
-            $sphinx_index = vBSphinxSearch_Core::get_sphinx_index_map($type);
+            $sphinx_index = vBSphinxSearch_Core::get_sphinx_index_map($content_type_id);
             if (!empty($sphinx_index))
             {
                 if ($this->_single_index_enabled)
@@ -712,38 +714,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
                 }
             }
         }
-
         return implode(", ", $indexes);
     }
 
     /**
-     * Fetch content type by filter.
-     * In this script used only "Searchable" and "Taggable"
-     *
-     */
-    protected function _fetch_content_types($filterName = 'Searchable')
-    {
-        $collection = new vB_Collection_ContentType();
-        $filter = 'filter' . ucfirst($filterName);
-        $collection->$filter(true);
-
-        $content_types = array();
-        foreach ($collection AS $type)
-        {
-            if ($type->getID() == vB_Types::instance()->getContentTypeId('vBForum_Thread'))
-            {
-                $content_types[] = vB_Types::instance()->getContentTypeId('vBForum_Post');
-            }
-            else
-            {
-                $content_types[] = $type->getID();
-            }
-        }
-        return $content_types;
-    }
-
-    /**
      * Set result limit.
+     * 
      * Note: Set max_mathes option because default value is 500 
      *
      */
