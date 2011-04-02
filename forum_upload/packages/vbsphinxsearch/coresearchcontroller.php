@@ -686,10 +686,12 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         elseif (empty($content_types))
         {
             global $vbulletin;
+            
+            // Additional setting for our product.
+            // Show quick search results as snippets or as threads
             if ($vbulletin->options['sph_quick_search_results_as_post'])
             {
-                // hack. Result will by show as post,
-                // but post from one thread will be grouped
+                // If show as threads - grouping required
                 $this->_require_grouping = true;
             }
         }

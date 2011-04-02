@@ -18,11 +18,13 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
     protected $_content_type_id;
 
     /**
-     * Write id to queue table
+     * Push single item to index queue.
      *
-     * @param array $fields
-     *   this is an array of field-value pairs. We need to have at least
-     *   primaryid and contenttype. The id may come as primaryid or id.
+     * @param array $fields - list of item colums names & values
+     *
+     * Params format - from generic vB class. We use only 2:
+     *   - primaryid (or "id", depends on item type)
+     *   - contenttypeid
      */
     public function index($fields)
     {
@@ -54,7 +56,12 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
     }
 
     /**
-     * Added for compatibility with original search engine
+     * Added for compatibility with original search engine. Called
+     * on merge threads/discussions
+     * 
+     * Note, that merge operations are very rare, and full index rebuild
+     * goes every day. So, we don't need to be vary careful here. Override
+     * method in child controller, if needed.
      */
     public function merge_group($content_type_id, $old_group_id, $new_group_id)
     {
@@ -62,10 +69,15 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
     }
 
     /**
-     * Write group to (re)index
+     * In theory, sould be called every time when title/info should be updated.
+     * For example, on every new post we should refresh topic info.
+     * That's a bit expensive.
      *
-     * Attention this function load up sphinxd.
-     * It beter to fetch group in index controller and reindex one by one
+     * But we use optimised code, and don't call this function at all.
+     * It's left for compatibility, if someone in vB add new index controller
+     * with direct all.
+     * 
+     * Params - contenttypeid & groupid
      */
     public function group_data_change($fields)
     {
@@ -77,10 +89,10 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
     }
 
     /**
-     * Mark group as deleted
-     *
-     * Attention this function load up sphinxd.
-     * It beter to fetch group in index controller and reindex one by one
+     * Used for mass-delete posts by topic id / discussion id etc.
+     * 
+     * Left for compatibility. This code is optimized in index controllers,
+     * no direct calls done.
      */
     public function delete_group($content_type_id, $group_id)
     {
@@ -103,7 +115,10 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
     }
 
     /**
-     * write id to queue table
+     * Build reindex queue. Each document is (id,contenttype)
+     * content type is taken from property. It should be pre-defined.
+     * Doc ids passed as params.
+     * 
      */
     protected function _write_to_queue($ids)
     {
@@ -127,9 +142,13 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
     }
 
     /**
-     * Fetch list of id by group_id.
-     * This is support function used for mass operations.
-     * Attention this function load up sphinxd.
+     * Fetch list of ids by group_id. (For example - all posts by thread id)
+     * 
+     * Attention(!) Selection by pure attributes is ineffective in sphinx.
+     * There will be problems for mass threads rebuild.
+     * 
+     * This code is for compatibility reasons, if optimised version
+     * not implementer in index controler
      */
     protected function _fetch_object_id_list($group_id, $only_first = false)
     {
