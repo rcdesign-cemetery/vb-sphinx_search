@@ -3,7 +3,7 @@
 <product productid="sphinx_search" active="1">
 	<title>Sphinx Search for vB4.X</title>
 	<description />
-	<version>1.2</version>
+	<version>1.3</version>
 	<url />
 	<versioncheckurl />
 	<apm_releasedate>0</apm_releasedate>
@@ -126,8 +126,12 @@ $vbulletin->GPC['nocache'] = true;]]></phpcode>
 			<phrase name="sph_invalid_query" date="1291723248" username="Vitaly" version=""><![CDATA[Internal error. Can't parse this search query.]]></phrase>
 		</phrasetype>
 		<phrasetype name="vBulletin Settings" fieldname="vbsettings">
-			<phrase name="setting_sph_similar_threads_time_line_desc" date="1287090540" username="Vitaly" version="1.0"><![CDATA[Set limit between thread last posts and current time (in days). Older threads will not be considered as similar. Set 0 to disable limit.]]></phrase>
-			<phrase name="setting_sph_similar_threads_time_line_title" date="1287090540" username="Vitaly" version="1.0"><![CDATA[Similar Threads Search Period]]></phrase>
+			<phrase name="setting_sph_quick_search_results_as_post_desc" date="1301748892" username="Vitaly" version="1.3"><![CDATA[When user searches from forum head, show results as "posts" (snippets), not as thread titles.]]></phrase>
+			<phrase name="setting_sph_quick_search_results_as_post_title" date="1301748892" username="Vitaly" version="1.3"><![CDATA[Show quick search results as "post" (Sphinx)]]></phrase>
+			<phrase name="setting_sph_similar_threads_hide_closed_desc" date="1301748772" username="Vitaly" version="1.3"><![CDATA[Show only open threads in similar threads search]]></phrase>
+			<phrase name="setting_sph_similar_threads_hide_closed_title" date="1301748772" username="Vitaly" version="1.3"><![CDATA[Exclude closed from similars (Sphinx)]]></phrase>
+			<phrase name="setting_sph_similar_threads_time_line_desc" date="1301748657" username="Vitaly" version="1.3"><![CDATA[Set limit between thread last posts and current time (in days). Older threads will not be considered as similar. Set 0 to disable limit.]]></phrase>
+			<phrase name="setting_sph_similar_threads_time_line_title" date="1301748657" username="Vitaly" version="1.3"><![CDATA[Similar Threads Search Period (Sphinx)]]></phrase>
 		</phrasetype>
 	</phrases>
 	<options>
@@ -135,6 +139,16 @@ $vbulletin->GPC['nocache'] = true;]]></phpcode>
 			<setting varname="sph_similar_threads_time_line" displayorder="115">
 				<datatype>integer</datatype>
 				<defaultvalue>365</defaultvalue>
+			</setting>
+			<setting varname="sph_similar_threads_hide_closed" displayorder="117">
+				<datatype>boolean</datatype>
+				<optioncode>yesno</optioncode>
+				<defaultvalue>1</defaultvalue>
+			</setting>
+			<setting varname="sph_quick_search_results_as_post" displayorder="130">
+				<datatype>boolean</datatype>
+				<optioncode>yesno</optioncode>
+				<defaultvalue>1</defaultvalue>
 			</setting>
 		</settinggroup>
 	</options>

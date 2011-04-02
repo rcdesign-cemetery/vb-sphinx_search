@@ -643,6 +643,11 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
 
         $this->_sphinx_filters[] = 'groupvisible = 1';
+        
+        if ($vbulletin->options['sph_similar_threads_hide_closed'])
+        {
+            $this->_sphinx_filters[] = 'groupopen = 1';
+        }
 
         if (0 < (int)$threadid)
         {
@@ -680,9 +685,13 @@ class vBSphinxSearch_CoreSearchController extends vB_Search_SearchController
         }
         elseif (empty($content_types))
         {
-            // hack. Result will by show as post,
-            // but post from one thread will be grouped
-            $this->_require_grouping = true;
+            global $vbulletin;
+            if ($vbulletin->options['sph_quick_search_results_as_post'])
+            {
+                // hack. Result will by show as post,
+                // but post from one thread will be grouped
+                $this->_require_grouping = true;
+            }
         }
 
         $collection = new vB_Collection_ContentType();
