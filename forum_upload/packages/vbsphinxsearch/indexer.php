@@ -35,11 +35,15 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
         }
         if (!array_key_exists('primaryid', $fields) OR !array_key_exists('contenttypeid', $fields))
         {
+            $message = 'Document ID or Content Type not specified for indexer. Request aborted.';
+            vBSphinxSearch_Core::log_errors($message);
             return false;
         }
 
-        $this->_set_content_type_id($fields['contenttypeid']);
-        $this->_write_to_queue(array($fields['primaryid']));
+        $this->_content_type_id = $fields['contenttypeid'];
+        $this->_id_list = array($fields['primaryid']);
+        $this->_write_to_queue();
+        return true;
     }
 
     /**
@@ -50,9 +54,9 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
      */
     public function delete($content_type_id, $id)
     {
-        $this->_set_content_type_id($content_type_id);
+        $this->_content_type_id = $content_type_id;
         $this->_id_list = array($id);
-        $this->_mark_as_deleted();
+        return $this->_write_to_queue();
     }
 
     /**
@@ -65,7 +69,9 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
      */
     public function merge_group($content_type_id, $old_group_id, $new_group_id)
     {
-        throw new Exception('Index controller must be used');
+        $message = 'Index controller must be use';
+        vBSphinxSearch_Core::log_errors($message);
+        return false;
     }
 
     /**
@@ -81,11 +87,17 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
      */
     public function group_data_change($fields)
     {
-        $this->_set_content_type_id($fields['contenttypeid']);
+        $message = 'Function group_data_change not optimized and should not be called directly in ' .
+                    vB_Types::instance()->getContentTypeTitle($fields['contenttypeid']) .
+                    ' index controller. See vBSphinxSearch_Search_IndexController_Post for example.';
+        vBSphinxSearch_Core::log_errors($message);
+        
+        $this->_content_type_id = $fields['contenttypeid'];
         if ($this->_fetch_object_id_list($fields['groupid'], true))
         {
-            return $this->_write_to_queue($this->_id_list);
+            return $this->_write_to_queue();
         }
+        return false;
     }
 
     /**
@@ -96,22 +108,17 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
      */
     public function delete_group($content_type_id, $group_id)
     {
-        $this->_set_content_type_id($content_type_id);
+        $message = 'Function delete_group not optimized and should not be called directly in ' .
+                    vB_Types::instance()->getContentTypeTitle($fields['contenttypeid']) .
+                    ' index controller. See vBSphinxSearch_Search_IndexController_Post for example.';
+        vBSphinxSearch_Core::log_errors($message);
+
+        $this->_content_type_id = $content_type_id;
         if ($this->_fetch_object_id_list($group_id))
         {
-            $this->_mark_as_deleted();
+            return $this->_write_to_queue();
         }
-    }
-
-    /**
-     * Mark all items from $this->_id_list as deleted
-     * This function was added for dirrect updete index attrebutes.
-     * But this feature dosen't support at this time
-     */
-    protected function _mark_as_deleted()
-    {
-        $this->_write_to_queue($this->_id_list);
-        return true;
+        return false;
     }
 
     /**
@@ -120,16 +127,22 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
      * Doc ids passed as params.
      * 
      */
-    protected function _write_to_queue($ids)
+    protected function _write_to_queue()
     {
-        if (is_null($this->_content_type_id) OR
-            !is_array($ids) OR empty($ids))
+        if (!is_array($this->_id_list) OR empty($this->_id_list))
         {
             return false;
         }
+
+        $indexes = vBSphinxSearch_Core::get_sphinx_index_map($this->_content_type_id);
+        if (empty($indexes))
+        {
+            return false;
+        }
+
         $db = vB::$vbulletin->db;
         $values = array();
-        foreach ($ids as $id)
+        foreach ($this->_id_list as $id)
         {
             $values[] = '(' . $this->_content_type_id . ', ' . $id . ')';
         }
@@ -156,11 +169,15 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
         {
             return false;
         }
-        $this->_id_list = array();
+
+        $indexes = implode(",", vBSphinxSearch_Core::get_sphinx_index_map($this->_content_type_id));
+        if (empty($indexes))
+        {
+            return false;
+        }
 
         $limit = vBSphinxSearch_Core::SPH_DEFAULT_RESULTS_LIMIT;
-        $indexes = implode(",", vBSphinxSearch_Core::get_sphinx_index_map($this->_content_type_id));
-
+        
         $query = 'SELECT *
                     FROM 
                         ' . $indexes . '
@@ -192,20 +209,4 @@ class vBSphinxSearch_Indexer extends vB_Search_ItemIndexer
 
         return false;
     }
-
-    /**
-     * Setter for content_type_id, also check whether this type to be indexed
-     */
-    protected function _set_content_type_id($content_type_id)
-    {
-        $indexes = vBSphinxSearch_Core::get_sphinx_index_map($content_type_id);
-        if (empty($indexes))
-        {
-            $this->_content_type_id = NULL;
-            return false;
-        }
-        $this->_content_type_id = $content_type_id;
-        return true;
-    }
-
 }

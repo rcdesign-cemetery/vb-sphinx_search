@@ -135,8 +135,9 @@ class vBSphinxSearch_Core extends vB_Search_Core
 
     public static function log_errors($message)
     {
+        error_log($err_message); // Send to PHP error log
         require_once(DIR . '/includes/functions_log_error.php');
-        log_vbulletin_error($message, 'php');
+        log_vbulletin_error($message, 'php'); // Send to vB error log
     }
 
 }
