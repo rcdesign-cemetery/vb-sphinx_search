@@ -95,6 +95,7 @@ $vbulletin->GPC['nocache'] = true;]]></phpcode>
 			<title>Show results as post for general search form(hack)</title>
 			<hookname>search_process_start</hookname>
 			<phpcode><![CDATA[if ($vbulletin->GPC_exists['query'] AND
+        $vbulletin->options['sph_quick_search_results_as_post'] AND
         !$vbulletin->GPC['searchthreadid'] AND
         !$vbulletin->GPC_exists['order'] AND
         !$vbulletin->GPC_exists['showposts'] AND
