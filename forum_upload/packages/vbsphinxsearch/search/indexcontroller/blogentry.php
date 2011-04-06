@@ -3,8 +3,6 @@
 /**
  * Index Controller for blog entrys
  *
- * @package vBulletin
- * @subpackage Search
  */
 class vBSphinxSearch_Search_IndexController_BlogEntry extends vBBlog_Search_IndexController_BlogEntry
 {
@@ -19,11 +17,9 @@ class vBSphinxSearch_Search_IndexController_BlogEntry extends vBBlog_Search_Inde
 		global $vbulletin;
         $sql = "SELECT
                     " . $this->get_contenttypeid() . " AS contenttypeid,
-                    blog_text.blogtextid AS primaryid
+                    blog.firstblogtextid AS primaryid
                 FROM
                     " . TABLE_PREFIX . "blog as blog
-                LEFT JOIN
-                    " . TABLE_PREFIX . "blog_text as blog_text ON blog.firstblogtextid = blog_text.blogtextid
             	WHERE
                     blog.blogid = " . intval($id);
 
@@ -36,9 +32,3 @@ class vBSphinxSearch_Search_IndexController_BlogEntry extends vBBlog_Search_Inde
 	}
 }
 
-/*======================================================================*\
-|| ####################################################################
-|| # Downloaded: 02:44, Wed Sep 15th 2010
-|| # SVN: $Revision: 28678 $
-|| ####################################################################
-\*======================================================================*/
