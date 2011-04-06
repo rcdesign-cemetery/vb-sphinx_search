@@ -8,7 +8,11 @@ class vBSphinxSearch_Search_IndexController_BlogEntry extends vBBlog_Search_Inde
 {
 	
 	/**
-	 * Index group message
+	 * Index "group message" (blog entry).
+     * 
+     * Due to stupid schema design, indexed data placed in `blog_text`
+     * table. But we receive ID from `blog` table. Should remap it,
+     * prior to place to queue 
 	 *
 	 * @param int $id
 	 */

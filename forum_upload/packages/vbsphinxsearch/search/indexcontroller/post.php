@@ -33,9 +33,14 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	}
 
     /**
-     * Add first post to queue for reindex 
-     * TODO: review solution after migration to rt index structure
-	 *
+     * Called on each
+     * - add / edit / delete post
+     * - thread move
+     * - thread soft delete
+     * 
+     * Don't reindex all post on each new one. That's expensive.
+     * Do it only on thread soft delete. In other case - reindex
+     * only first post.
      */
 	public function group_data_change($id)
     {
@@ -47,7 +52,7 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 
         if ($thread_info['isdeleted'])
         {
-            // soft thread delete
+            // if thread is soft deleted - update all childs
             return $this->delete_thread($id);
         }
 
@@ -60,8 +65,7 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	}
 
 	/**
-     * Add first post to queue for reindex 
-     * TODO: review solution after migration to rt index structure
+     * Called on thread hard-delete. Remove all posts from index.
 	 *
 	 * @param int $id the thread id
 	 */
