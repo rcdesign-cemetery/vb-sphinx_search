@@ -28,7 +28,7 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	 * @param int $id the thread id
 	 */
 	public function thread_data_change($id)
-	{
+    {
 		return $this->group_data_change($id);
 	}
 
@@ -39,11 +39,22 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
      */
 	public function group_data_change($id)
     {
-        $first_post_info =  $this->_get_thread_primaryid($id);
-        if (!$first_post_info)
+        $thread_info = fetch_threadinfo($id);
+        if (!$thread_info)
         {
             return false;
         }
+
+        if ($thread_info['isdeleted'])
+        {
+            // soft thread delete
+            return $this->delete_thread($id);
+        }
+
+        $first_post_info = array(
+            'contentypeid'=>$this->get_contenttypeid(),
+            'primaryid'=>$thread_info['firstpostid'],
+        );
         $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
         return $indexer->index($first_post_info);
 	}
@@ -55,40 +66,23 @@ class vBSphinxSearch_Search_IndexController_Post extends vBForum_Search_IndexCon
 	 * @param int $id the thread id
 	 */
 	public function delete_thread($id)
-	{
-        $first_post_info =  $this->_get_thread_primaryid($id);
-        if (!$first_post_info)
-        {
-            return false;
-        }
-        $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
-        return $indexer->delete($first_post_info['contenttypeid'], $first_post_info['primaryid']);
-    }
-
-    /**
-     * Get first post info (array with contenttypeid and postid as keys)
-     * 
-     * @param int $id
-     * @return mixed
-     */
-    protected function _get_thread_primaryid($id)
     {
         global $vbulletin;
-        $sql = "SELECT
-                    " . $this->contenttypeid . " AS contenttypeid,
-                    `firstpostid` AS primaryid
-                FROM
-                    " . TABLE_PREFIX . "thread
-                WHERE
-                  `threadid` = $id";
+        $indexer = vBSphinxSearch_Core::get_instance()->get_core_indexer();
 
-        $first_post_info = $vbulletin->db->query_first($sql);
-		if (!$first_post_info)
-		{
-			//non existant thread.
-			return false;
+        $sql = "SELECT
+                    " . $this->get_contenttypeid() . " AS contenttypeid,
+                    post.postid AS primaryid
+                FROM
+                    " . TABLE_PREFIX . "post as post
+            	WHERE
+                    post.threadid = " . intval($id);
+        $res = $vbulletin->db->query_read_slave($sql);
+        while ($row = $vbulletin->db->fetch_array($res))
+        {
+            $indexer->delete($row['contenttypeid'], $row['primaryid']);
         }
-        return $first_post_info;
+        return true;
     }
 
 	/**
