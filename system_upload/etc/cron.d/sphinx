@@ -2,11 +2,11 @@
 #  Rebuild all indeces
 #
 
-3 4 * * *		root	/etc/init.d/sphinx index > /dev/null
+3 4 * * *		root	/etc/init.d/sphinx index >/dev/null 2>&1
 
 #
 #  Rebuild only delta indeces
 #
 
-7,12,17,22,27,32,37,42,47,52,57,2 * * * *	root	/etc/init.d/sphinx delta > /dev/null
+7,12,17,22,27,32,37,42,47,52,57,2 * * * *	root	/etc/init.d/sphinx delta >/dev/null 2>&1
 
